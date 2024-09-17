@@ -1,0 +1,50 @@
+Checks: >
+  -*,
+  google-*,
+  readability-*,
+  readability-identifier-naming,
+  readability-misleading-indentation,
+  readability-function-size
+
+CheckOptions:
+  - key: readability/identifier-naming/LineLength
+    value: '120'
+
+  - key: readability/identifier-naming/VariableCase
+    value: lower_case
+
+  - key: readability/identifier-naming/ClassCase
+    value: CamelCase
+
+  - key: readability/identifier-naming/ConstantCase
+    value: UPPER_CASE
+
+  - key: readability/identifier-naming/FunctionCase
+    value: CamelCase
+
+  - key: readability/identifier-naming/MethodCase
+    value: CamelCase
+
+  - key: readability/identifier-naming/ParameterCase
+    value: lower_case
+
+  - key: readability/identifier-naming/NamespaceCase
+    value: lower_case
+
+  - key: readability/identifier-naming/TypedefCase
+    value: CamelCase
+
+  - key: readability/identifier-naming/TemplateParameterCase
+    value: CamelCase
+
+  - key: readability/identifier-naming/EnumConstantCase
+    value: UPPER_CASE
+
+  - key: readability/identifier-naming/MemberVariableCase
+    value: lower_case_
+
+  - key: readability/identifier-naming/NonConstGlobalVariableCase
+    value: g_lower_case
+
+  - key: readability/line-length/LineLength
+    value: '120'

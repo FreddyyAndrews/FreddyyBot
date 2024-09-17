@@ -1,0 +1,15 @@
+notes.md
+.vscode/
+logs/
+reports/
+
+# Conan generated files and directories
+conanbuild.sh
+conanrun.sh
+conanbuildenv-release-x86_64.sh
+conanrunenv-release-x86_64.sh
+deactivate_conanbuild.sh
+deactivate_conanrun.sh
+conandeps.mk
+
+
