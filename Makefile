@@ -1,39 +1,60 @@
 # Define compiler and flags
 CXX = g++
-CXXFLAGS = -pedantic-errors -Wall -Weffc++ -Wextra -Wconversion -Wsign-conversion -std=c++23
+# CXXFLAGS = -pedantic-errors -Wall -Weffc++ -Wextra -Wconversion -Wsign-conversion -Werror -std=c++23
+CXXFLAGS = -std=c++23
 
-# Include Conan generated dependencies
-include conandeps.mk
+# Include directories (use -isystem for GTest to suppress warnings from GTest)
+INCLUDE_DIRS = -Iinclude -isystem /usr/src/googletest/googletest/include
 
-# Add Conan flags to your build
-CXXFLAGS += $(CONAN_INCLUDE_DIRS)
-LDFLAGS += $(CONAN_LIB_DIRS)
-LIBS += $(CONAN_LIBS) $(CONAN_SYSTEM_LIBS)
+# GTest library directories and libraries
+LIB_DIRS = -L/usr/lib
+LIBS = -lgtest -lgtest_main -pthread -lncursesw -ltinfo
 
 # Directories
 SRC_DIR = src/manager
-BUILD_DIR = build
+TEST_DIR = src/manager/tests
+BUILD_DIR = build/manager
 
 # Source files
 SRC_FILES = $(wildcard $(SRC_DIR)/*.cpp)
+TEST_FILES = $(wildcard $(TEST_DIR)/*.cpp)
 
-# Output binary
+# Output binaries
 MANAGER_BIN = $(BUILD_DIR)/manager
+TEST_BIN = $(BUILD_DIR)/tests
 
 # Create the build directory if it doesn't exist
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
 # Build the manager executable
+manager: $(MANAGER_BIN)
+
 $(MANAGER_BIN): $(SRC_FILES) | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(SRC_FILES) -o $(MANAGER_BIN) $(LDFLAGS) $(LIBS)
+	$(CXX) $(CXXFLAGS) $(INCLUDE_DIRS) $(SRC_FILES) -o $(MANAGER_BIN)
+
+# Build the test executable
+manager_test: $(TEST_BIN)
+
+$(TEST_BIN): $(TEST_FILES) $(filter-out src/manager/main.cpp, $(SRC_FILES)) | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDE_DIRS) $(TEST_FILES) $(filter-out src/manager/main.cpp, $(SRC_FILES)) $(LIB_DIRS) $(LIBS) -o $(TEST_BIN)
 
 # Run the manager
-.PHONY: run
-run: $(MANAGER_BIN)
+.PHONY: manager_run
+manager_run: $(MANAGER_BIN)
 	./$(MANAGER_BIN)
 
-# Clean build artifacts
+# Run the tests
+.PHONY: manager_test
+manager_test_run: $(TEST_BIN)
+	./$(TEST_BIN)
+
+# Clean manager build artifacts
+.PHONY: manager_clean
+manager_clean:
+	rm -rf $(BUILD_DIR)
+
+# General clean
 .PHONY: clean
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf build
