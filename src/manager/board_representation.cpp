@@ -16,18 +16,23 @@ BoardRepresentation::BoardRepresentation(const std::string &fen)
     input_fen_position(fen); // Initialize using FEN string
 }
 
-// Function to convert FEN position to bitboards and other variables
+// Function to convert FEN position to 2D board representation and other variables
 void BoardRepresentation::input_fen_position(const std::string &fen)
 {
     std::istringstream fen_stream(fen);
-    std::string board_part, active_color, castling_rights, en_passant_target, half_move_clock, full_move_number;
+    std::string board_part, active_color, castling_rights, en_passant_target, half_move_clock_str, full_move_number_str;
 
     // Split the FEN string into its components
-    fen_stream >> board_part >> active_color >> castling_rights >> en_passant_target >> half_move_clock >> full_move_number;
+    fen_stream >> board_part >> active_color >> castling_rights >> en_passant_target >> half_move_clock_str >> full_move_number_str;
 
-    // Clear the bitboards
-    white_pawns = white_knights = white_bishops = white_rooks = white_queens = white_king = 0;
-    black_pawns = black_knights = black_bishops = black_rooks = black_queens = black_king = 0;
+    // Clear the 2D board (initialize all squares to 'e' for empty)
+    for (int i = 0; i < 8; ++i)
+    {
+        for (int j = 0; j < 8; ++j)
+        {
+            board[i][j] = 'e';
+        }
+    }
 
     // Parse the piece placement part of the FEN string
     std::vector<std::string> ranks;
@@ -38,7 +43,7 @@ void BoardRepresentation::input_fen_position(const std::string &fen)
         ranks.push_back(rank);
     }
 
-    // Populate the bitboards based on the ranks
+    // Populate the 2D board array based on the ranks
     for (int rank_index = 0; rank_index < 8; ++rank_index)
     {
         const std::string &current_rank = ranks[7 - rank_index]; // FEN ranks go from 8th rank to 1st rank
@@ -48,54 +53,12 @@ void BoardRepresentation::input_fen_position(const std::string &fen)
         {
             if (std::isdigit(square))
             {
-                file_index += square - '0'; // Empty squares
+                file_index += square - '0'; // Skip empty squares
             }
             else
             {
-                int bit_index = square_to_bit_index(rank_index, file_index);
-
-                switch (square)
-                {
-                // White pieces
-                case 'P':
-                    white_pawns |= (1ULL << bit_index);
-                    break;
-                case 'N':
-                    white_knights |= (1ULL << bit_index);
-                    break;
-                case 'B':
-                    white_bishops |= (1ULL << bit_index);
-                    break;
-                case 'R':
-                    white_rooks |= (1ULL << bit_index);
-                    break;
-                case 'Q':
-                    white_queens |= (1ULL << bit_index);
-                    break;
-                case 'K':
-                    white_king |= (1ULL << bit_index);
-                    break;
-                // Black pieces
-                case 'p':
-                    black_pawns |= (1ULL << bit_index);
-                    break;
-                case 'n':
-                    black_knights |= (1ULL << bit_index);
-                    break;
-                case 'b':
-                    black_bishops |= (1ULL << bit_index);
-                    break;
-                case 'r':
-                    black_rooks |= (1ULL << bit_index);
-                    break;
-                case 'q':
-                    black_queens |= (1ULL << bit_index);
-                    break;
-                case 'k':
-                    black_king |= (1ULL << bit_index);
-                    break;
-                }
-
+                // Place the piece directly on the board
+                board[rank_index][file_index] = square;
                 ++file_index;
             }
         }
@@ -115,7 +78,7 @@ void BoardRepresentation::input_fen_position(const std::string &fen)
     {
         int file = en_passant_target[0] - 'a';
         int rank = en_passant_target[1] - '1';
-        en_passant_square = square_to_bit_index(rank, file);
+        en_passant_square = rank * 8 + file; // Linear index for the 8x8 board
     }
     else
     {
@@ -123,11 +86,10 @@ void BoardRepresentation::input_fen_position(const std::string &fen)
     }
 
     // Parse halfmove clock and fullmove number
-    halfmove_clock = std::stoi(half_move_clock);
-    fullmove_number = std::stoi(full_move_number);
+    halfmove_clock = std::stoi(half_move_clock_str);
+    fullmove_number = std::stoi(full_move_number_str);
 }
 
-// Convert bitboard and other internal representation to FEN string
 std::string BoardRepresentation::output_fen_position() const
 {
     std::stringstream fen;
@@ -138,56 +100,32 @@ std::string BoardRepresentation::output_fen_position() const
         int empty_squares = 0;
         for (int file = 0; file < 8; ++file)
         {
-            int square_index = rank * 8 + file;
+            char piece = board[rank][file];
 
-            // Check which piece (if any) is on this square and add it to FEN
-            char piece = '\0';
-            if (white_pawns & (1ULL << square_index))
-                piece = 'P';
-            else if (white_knights & (1ULL << square_index))
-                piece = 'N';
-            else if (white_bishops & (1ULL << square_index))
-                piece = 'B';
-            else if (white_rooks & (1ULL << square_index))
-                piece = 'R';
-            else if (white_queens & (1ULL << square_index))
-                piece = 'Q';
-            else if (white_king & (1ULL << square_index))
-                piece = 'K';
-            else if (black_pawns & (1ULL << square_index))
-                piece = 'p';
-            else if (black_knights & (1ULL << square_index))
-                piece = 'n';
-            else if (black_bishops & (1ULL << square_index))
-                piece = 'b';
-            else if (black_rooks & (1ULL << square_index))
-                piece = 'r';
-            else if (black_queens & (1ULL << square_index))
-                piece = 'q';
-            else if (black_king & (1ULL << square_index))
-                piece = 'k';
-            else
-                empty_squares++; // Count empty squares
-
-            // If there's a piece, append the number of empty squares (if any) followed by the piece
-            if (piece != '\0')
+            if (piece == 'e') // Empty square
             {
+                empty_squares++;
+            }
+            else
+            {
+                // If there are any accumulated empty squares, add them to the FEN
                 if (empty_squares > 0)
                 {
                     fen << empty_squares;
                     empty_squares = 0;
                 }
+                // Add the piece
                 fen << piece;
             }
 
-            // If we're at the end of the rank and there are empty squares, append them
+            // If we are at the end of the rank and have empty squares, append them
             if (file == 7 && empty_squares > 0)
             {
                 fen << empty_squares;
             }
         }
 
-        // Add a '/' after each rank, except for the last one
+        // Add a '/' after each rank except the last one
         if (rank > 0)
         {
             fen << '/';
@@ -239,6 +177,12 @@ std::vector<std::string> BoardRepresentation::list_next_legal_moves() const
     return {"e2e4", "d2d4", "g1f3"};
 }
 
+// TODO: Implement this method
+bool BoardRepresentation::make_move(Move move)
+{
+    return false;
+}
+
 bool BoardRepresentation::make_move(const std::string &move)
 {
     print_board();
@@ -278,19 +222,32 @@ bool BoardRepresentation::make_move(const std::string &move)
         return false;
     }
 
+    // Convert the 1D index to 2D board coordinates
+    int to_rank = to_square / 8;
+    int to_file = to_square % 8;
+
     // Calculate is_capture by checking if the to_square is occupied by an opponent's piece
     bool is_capture = false;
     uint64_t opponent_pieces = 0;
 
+    // Check if the target square is occupied by an opponent's piece
+    char piece_on_target_square = board[to_rank][to_file];
+
     if (is_white_piece)
     {
-        // Opponent is black
-        opponent_pieces = black_pawns | black_knights | black_bishops | black_rooks | black_queens | black_king;
+        // Check if the target square contains a black piece
+        if (piece_on_target_square >= 'a' && piece_on_target_square <= 'z') // Lowercase letters represent black pieces
+        {
+            is_capture = true;
+        }
     }
     else
     {
-        // Opponent is white
-        opponent_pieces = white_pawns | white_knights | white_bishops | white_rooks | white_queens | white_king;
+        // Check if the target square contains a white piece
+        if (piece_on_target_square >= 'A' && piece_on_target_square <= 'Z') // Uppercase letters represent white pieces
+        {
+            is_capture = true;
+        }
     }
 
     if (opponent_pieces & (1ULL << to_square))
@@ -318,7 +275,7 @@ bool BoardRepresentation::make_move(const std::string &move)
         {
             // Remove the opponent's pawn from the square behind the en passant square
             int captured_pawn_square = is_white_piece ? to_square - 8 : to_square + 8;
-            remove_opponent_pawn_from_square(captured_pawn_square, is_white_piece);
+            remove_pawn_enpassant(captured_pawn_square, is_white_piece);
         }
         else
         {
@@ -367,15 +324,20 @@ bool BoardRepresentation::make_move(const std::string &move)
     return true;
 }
 
-void BoardRepresentation::remove_opponent_pawn_from_square(int square, bool is_white_piece)
+void BoardRepresentation::remove_pawn_enpassant(int square, bool is_white_piece)
 {
-    uint64_t square_bit = (1ULL << square);
+    // Convert the 1D square index to 2D board coordinates
+    int rank = square / 8;
+    int file = square % 8;
+
+    char &piece_on_square = board[rank][file];
+
     if (is_white_piece)
     {
         // Opponent is black
-        if (black_pawns & square_bit)
+        if (piece_on_square == 'p') // Black pawn
         {
-            black_pawns &= ~square_bit;
+            piece_on_square = 'e'; // Set the square to empty
         }
         else
         {
@@ -385,9 +347,9 @@ void BoardRepresentation::remove_opponent_pawn_from_square(int square, bool is_w
     else
     {
         // Opponent is white
-        if (white_pawns & square_bit)
+        if (piece_on_square == 'P') // White pawn
         {
-            white_pawns &= ~square_bit;
+            piece_on_square = 'e'; // Set the square to empty
         }
         else
         {
@@ -398,82 +360,26 @@ void BoardRepresentation::remove_opponent_pawn_from_square(int square, bool is_w
 
 bool BoardRepresentation::remove_piece_from_square(int square, char &moving_piece, bool &is_white_piece)
 {
-    if (white_pawns & (1ULL << square))
-    {
-        moving_piece = 'P';
-        is_white_piece = true;
-        white_pawns &= ~(1ULL << square);
-    }
-    else if (white_knights & (1ULL << square))
-    {
-        moving_piece = 'N';
-        is_white_piece = true;
-        white_knights &= ~(1ULL << square);
-    }
-    else if (white_bishops & (1ULL << square))
-    {
-        moving_piece = 'B';
-        is_white_piece = true;
-        white_bishops &= ~(1ULL << square);
-    }
-    else if (white_rooks & (1ULL << square))
-    {
-        moving_piece = 'R';
-        is_white_piece = true;
-        white_rooks &= ~(1ULL << square);
-    }
-    else if (white_queens & (1ULL << square))
-    {
-        moving_piece = 'Q';
-        is_white_piece = true;
-        white_queens &= ~(1ULL << square);
-    }
-    else if (white_king & (1ULL << square))
-    {
-        moving_piece = 'K';
-        is_white_piece = true;
-        white_king &= ~(1ULL << square);
-    }
-    else if (black_pawns & (1ULL << square))
-    {
-        moving_piece = 'p';
-        is_white_piece = false;
-        black_pawns &= ~(1ULL << square);
-    }
-    else if (black_knights & (1ULL << square))
-    {
-        moving_piece = 'n';
-        is_white_piece = false;
-        black_knights &= ~(1ULL << square);
-    }
-    else if (black_bishops & (1ULL << square))
-    {
-        moving_piece = 'b';
-        is_white_piece = false;
-        black_bishops &= ~(1ULL << square);
-    }
-    else if (black_rooks & (1ULL << square))
-    {
-        moving_piece = 'r';
-        is_white_piece = false;
-        black_rooks &= ~(1ULL << square);
-    }
-    else if (black_queens & (1ULL << square))
-    {
-        moving_piece = 'q';
-        is_white_piece = false;
-        black_queens &= ~(1ULL << square);
-    }
-    else if (black_king & (1ULL << square))
-    {
-        moving_piece = 'k';
-        is_white_piece = false;
-        black_king &= ~(1ULL << square);
-    }
-    else
+    // Convert 1D square index to 2D board coordinates
+    int rank = square / 8;
+    int file = square % 8;
+
+    // Get the piece from the board
+    char piece_on_square = board[rank][file];
+
+    // Check if there's a piece on the square
+    if (piece_on_square == 'e') // Empty square
     {
         return false;
     }
+
+    // Set the moving piece and determine the color
+    moving_piece = piece_on_square;
+    is_white_piece = (piece_on_square >= 'A' && piece_on_square <= 'Z'); // Uppercase = white piece
+
+    // Remove the piece from the board by setting the square to 'e' (empty)
+    board[rank][file] = 'e';
+
     return true;
 }
 
@@ -510,228 +416,122 @@ void BoardRepresentation::handle_captures_and_castling_rights(int to_square, boo
 
 bool BoardRepresentation::remove_white_piece_from_square(int square)
 {
-    if (white_pawns & (1ULL << square))
+    // Convert 1D square index to 2D board coordinates
+    int rank = square / 8;
+    int file = square % 8;
+
+    // Check if the piece is a white piece (uppercase letter) on the board
+    char piece_on_square = board[rank][file];
+    if (piece_on_square == 'P' || piece_on_square == 'N' || piece_on_square == 'B' ||
+        piece_on_square == 'R' || piece_on_square == 'Q' || piece_on_square == 'K')
     {
-        white_pawns &= ~(1ULL << square);
+        // Remove the piece by setting the square to 'e' (empty)
+        board[rank][file] = 'e';
         return true;
     }
-    if (white_knights & (1ULL << square))
-    {
-        white_knights &= ~(1ULL << square);
-        return true;
-    }
-    if (white_bishops & (1ULL << square))
-    {
-        white_bishops &= ~(1ULL << square);
-        return true;
-    }
-    if (white_rooks & (1ULL << square))
-    {
-        white_rooks &= ~(1ULL << square);
-        return true;
-    }
-    if (white_queens & (1ULL << square))
-    {
-        white_queens &= ~(1ULL << square);
-        return true;
-    }
-    if (white_king & (1ULL << square))
-    {
-        white_king &= ~(1ULL << square);
-        return true;
-    }
+
     return false;
 }
 
 bool BoardRepresentation::remove_black_piece_from_square(int square)
 {
-    if (black_pawns & (1ULL << square))
+    // Convert 1D square index to 2D board coordinates
+    int rank = square / 8;
+    int file = square % 8;
+
+    // Check if the piece is a black piece (lowercase letter) on the board
+    char piece_on_square = board[rank][file];
+    if (piece_on_square == 'p' || piece_on_square == 'n' || piece_on_square == 'b' ||
+        piece_on_square == 'r' || piece_on_square == 'q' || piece_on_square == 'k')
     {
-        black_pawns &= ~(1ULL << square);
+        // Remove the piece by setting the square to 'e' (empty)
+        board[rank][file] = 'e';
         return true;
     }
-    if (black_knights & (1ULL << square))
-    {
-        black_knights &= ~(1ULL << square);
-        return true;
-    }
-    if (black_bishops & (1ULL << square))
-    {
-        black_bishops &= ~(1ULL << square);
-        return true;
-    }
-    if (black_rooks & (1ULL << square))
-    {
-        black_rooks &= ~(1ULL << square);
-        return true;
-    }
-    if (black_queens & (1ULL << square))
-    {
-        black_queens &= ~(1ULL << square);
-        return true;
-    }
-    if (black_king & (1ULL << square))
-    {
-        black_king &= ~(1ULL << square);
-        return true;
-    }
+
     return false;
 }
 
-void BoardRepresentation::handle_pawn_promotion(uint64_t to_bit, char promotion_piece, bool is_white_piece)
+void BoardRepresentation::handle_pawn_promotion(int to_square, char promotion_piece, bool is_white_piece)
 {
+    // Convert the 1D to_square index to 2D board coordinates
+    int rank = to_square / 8;
+    int file = to_square % 8;
+
+    // If the piece is white, convert promotion_piece to uppercase
     if (is_white_piece)
     {
-        switch (promotion_piece)
-        {
-        case 'q':
-        case 'Q':
-            white_queens |= to_bit;
-            break;
-        case 'r':
-        case 'R':
-            white_rooks |= to_bit;
-            break;
-        case 'b':
-        case 'B':
-            white_bishops |= to_bit;
-            break;
-        case 'n':
-        case 'N':
-            white_knights |= to_bit;
-            break;
-        default:
-            std::cerr << "Invalid promotion piece: " << promotion_piece << std::endl;
-        }
+        promotion_piece = std::toupper(promotion_piece); // Ensure uppercase for white pieces
     }
     else
     {
-        switch (promotion_piece)
-        {
-        case 'q':
-        case 'Q':
-            black_queens |= to_bit;
-            break;
-        case 'r':
-        case 'R':
-            black_rooks |= to_bit;
-            break;
-        case 'b':
-        case 'B':
-            black_bishops |= to_bit;
-            break;
-        case 'n':
-        case 'N':
-            black_knights |= to_bit;
-            break;
-        default:
-            std::cerr << "Invalid promotion piece: " << promotion_piece << std::endl;
-        }
+        promotion_piece = std::tolower(promotion_piece); // Ensure lowercase for black pieces
     }
+
+    // Set the promoted piece in the board array
+    board[rank][file] = promotion_piece;
 }
 
 void BoardRepresentation::handle_regular_move(int from_square, int to_square, char moving_piece, bool is_white_piece,
                                               bool &is_castling_move, bool &is_double_pawn_push)
 {
-    uint64_t to_bit = (1ULL << to_square);
-    if (is_white_piece)
+    // Convert 1D indices to 2D board coordinates
+    int from_rank = from_square / 8, from_file = from_square % 8;
+    int to_rank = to_square / 8, to_file = to_square % 8;
+
+    // Move the piece to the new square
+    board[to_rank][to_file] = moving_piece;
+    board[from_rank][from_file] = 'e'; // Set the from square to empty
+
+    // Handle double pawn push
+    if (moving_piece == 'P' && from_rank == 1 && to_rank == 3)
+        is_double_pawn_push = true;
+    else if (moving_piece == 'p' && from_rank == 6 && to_rank == 4)
+        is_double_pawn_push = true;
+
+    // Handle castling
+    if (moving_piece == 'K' && from_square == algebraic_to_square("e1"))
     {
-        switch (moving_piece)
+        white_can_castle_kingside = white_can_castle_queenside = false;
+        if (to_square == algebraic_to_square("g1"))
         {
-        case 'P':
-            white_pawns |= to_bit;
-            if (from_square / 8 == 1 && to_square / 8 == 3)
-            {
-                is_double_pawn_push = true;
-            }
-            break;
-        case 'N':
-            white_knights |= to_bit;
-            break;
-        case 'B':
-            white_bishops |= to_bit;
-            break;
-        case 'R':
-            white_rooks |= to_bit;
-            if (from_square == algebraic_to_square("a1"))
-                white_can_castle_queenside = false;
-            else if (from_square == algebraic_to_square("h1"))
-                white_can_castle_kingside = false;
-            break;
-        case 'Q':
-            white_queens |= to_bit;
-            break;
-        case 'K':
-            white_king |= to_bit;
-            white_can_castle_kingside = false;
-            white_can_castle_queenside = false;
-            if (from_square == algebraic_to_square("e1"))
-            {
-                if (to_square == algebraic_to_square("g1"))
-                {
-                    is_castling_move = true;
-                    white_rooks &= ~(1ULL << algebraic_to_square("h1"));
-                    white_rooks |= (1ULL << algebraic_to_square("f1"));
-                }
-                else if (to_square == algebraic_to_square("c1"))
-                {
-                    is_castling_move = true;
-                    white_rooks &= ~(1ULL << algebraic_to_square("a1"));
-                    white_rooks |= (1ULL << algebraic_to_square("d1"));
-                }
-            }
-            break;
+            is_castling_move = true;
+            board[7][5] = 'R'; // Move rook
+            board[7][7] = 'e'; // Clear the original rook square
+        }
+        else if (to_square == algebraic_to_square("c1"))
+        {
+            is_castling_move = true;
+            board[7][3] = 'R'; // Move rook
+            board[7][0] = 'e'; // Clear the original rook square
         }
     }
-    else
+    else if (moving_piece == 'k' && from_square == algebraic_to_square("e8"))
     {
-        switch (moving_piece)
+        black_can_castle_kingside = black_can_castle_queenside = false;
+        if (to_square == algebraic_to_square("g8"))
         {
-        case 'p':
-            black_pawns |= to_bit;
-            if (from_square / 8 == 6 && to_square / 8 == 4)
-            {
-                is_double_pawn_push = true;
-            }
-            break;
-        case 'n':
-            black_knights |= to_bit;
-            break;
-        case 'b':
-            black_bishops |= to_bit;
-            break;
-        case 'r':
-            black_rooks |= to_bit;
-            if (from_square == algebraic_to_square("a8"))
-                black_can_castle_queenside = false;
-            else if (from_square == algebraic_to_square("h8"))
-                black_can_castle_kingside = false;
-            break;
-        case 'q':
-            black_queens |= to_bit;
-            break;
-        case 'k':
-            black_king |= to_bit;
-            black_can_castle_kingside = false;
-            black_can_castle_queenside = false;
-            if (from_square == algebraic_to_square("e8"))
-            {
-                if (to_square == algebraic_to_square("g8"))
-                {
-                    is_castling_move = true;
-                    black_rooks &= ~(1ULL << algebraic_to_square("h8"));
-                    black_rooks |= (1ULL << algebraic_to_square("f8"));
-                }
-                else if (to_square == algebraic_to_square("c8"))
-                {
-                    is_castling_move = true;
-                    black_rooks &= ~(1ULL << algebraic_to_square("a8"));
-                    black_rooks |= (1ULL << algebraic_to_square("d8"));
-                }
-            }
-            break;
+            is_castling_move = true;
+            board[0][5] = 'r'; // Move rook
+            board[0][7] = 'e'; // Clear the original rook square
+        }
+        else if (to_square == algebraic_to_square("c8"))
+        {
+            is_castling_move = true;
+            board[0][3] = 'r'; // Move rook
+            board[0][0] = 'e'; // Clear the original rook square
         }
     }
+
+    // Handle rook moves that affect castling rights
+    if (moving_piece == 'R' && from_square == algebraic_to_square("a1"))
+        white_can_castle_queenside = false;
+    if (moving_piece == 'R' && from_square == algebraic_to_square("h1"))
+        white_can_castle_kingside = false;
+    if (moving_piece == 'r' && from_square == algebraic_to_square("a8"))
+        black_can_castle_queenside = false;
+    if (moving_piece == 'r' && from_square == algebraic_to_square("h8"))
+        black_can_castle_kingside = false;
 }
 
 void BoardRepresentation::update_en_passant_square(char moving_piece, int from_square, int to_square, bool is_double_pawn_push)
@@ -822,33 +622,45 @@ void BoardRepresentation::reset()
 // Helper function to map the bitboard index to a Unicode chess piece symbol
 wchar_t BoardRepresentation::get_piece_at_square(int square) const
 {
-    if (white_pawns & (1ULL << square))
+    // Convert 1D square index to 2D board coordinates
+    int rank = square / 8;
+    int file = square % 8;
+
+    // Get the piece from the board
+    char piece = board[rank][file];
+
+    // Map the piece to its corresponding Unicode chess symbol
+    switch (piece)
+    {
+    case 'P':
         return L'♙'; // White Pawn
-    if (white_knights & (1ULL << square))
+    case 'N':
         return L'♘'; // White Knight
-    if (white_bishops & (1ULL << square))
+    case 'B':
         return L'♗'; // White Bishop
-    if (white_rooks & (1ULL << square))
+    case 'R':
         return L'♖'; // White Rook
-    if (white_queens & (1ULL << square))
+    case 'Q':
         return L'♕'; // White Queen
-    if (white_king & (1ULL << square))
+    case 'K':
         return L'♔'; // White King
 
-    if (black_pawns & (1ULL << square))
+    case 'p':
         return L'♟'; // Black Pawn
-    if (black_knights & (1ULL << square))
+    case 'n':
         return L'♞'; // Black Knight
-    if (black_bishops & (1ULL << square))
+    case 'b':
         return L'♝'; // Black Bishop
-    if (black_rooks & (1ULL << square))
+    case 'r':
         return L'♜'; // Black Rook
-    if (black_queens & (1ULL << square))
+    case 'q':
         return L'♛'; // Black Queen
-    if (black_king & (1ULL << square))
+    case 'k':
         return L'♚'; // Black King
 
-    return L' '; // Empty square
+    default:
+        return L' '; // Empty square
+    }
 }
 
 void BoardRepresentation::print_board() const
@@ -939,32 +751,4 @@ void BoardRepresentation::print_board() const
 
     // End ncurses mode
     endwin();
-}
-
-std::string BoardRepresentation::bitboard_to_fen(uint64_t bitboard, int rank, int file)
-{
-    int index = (rank * 8) + file;
-    return (bitboard & (1ULL << index)) ? "1" : "0";
-}
-
-int BoardRepresentation::square_to_bit_index(int rank, int file)
-{
-    return (rank * 8) + file;
-}
-
-// Helper methods
-void BoardRepresentation::update_attacking_defending_squares()
-{
-    // Dummy method: Does nothing
-}
-
-bool BoardRepresentation::is_legal_move(const std::string &move) const
-{
-    // Dummy method: Always returns true
-    return true;
-}
-
-void BoardRepresentation::apply_move(const std::string &move)
-{
-    // Dummy method: Does nothing
 }
