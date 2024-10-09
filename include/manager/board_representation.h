@@ -19,7 +19,7 @@ public:
 
     // Methods to handle moves
     std::vector<std::string> list_next_legal_moves() const; // Generate all legal moves from the current position
-    bool make_move(const std::string &move);                // Apply a move (in UCI notation)
+    void make_move(const std::string &move);                // Apply a move (in UCI notation)
 
     // Methods for specific game states
     bool is_checkmate() const;             // Check if the current player is in checkmate
@@ -50,7 +50,7 @@ private:
 
     // Helper methods for legal move generation and game status checks
     wchar_t get_piece_at_square(int square) const;                                       // Get the piece at a square
-    bool make_move(Move &move); // Play move internally
+    void make_move(Move &move); // Play move internally
 };
 
 #endif // BOARD_REPRESENTATION_H

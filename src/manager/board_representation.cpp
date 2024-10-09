@@ -78,11 +78,11 @@ void BoardRepresentation::input_fen_position(const std::string &fen)
     {
         int file = en_passant_target[0] - 'a';
         int rank = en_passant_target[1] - '1';
-        en_passant_square = rank * 8 + file; // Linear index for the 8x8 board
+        en_passant_square = Square(rank, file); // define en passant square
     }
     else
     {
-        en_passant_square = -1; // No en passant square
+        en_passant_square = Square(-1, -1); // No en passant square
     }
 
     // Parse halfmove clock and fullmove number
@@ -153,15 +153,13 @@ std::string BoardRepresentation::output_fen_position() const
 
     // 4. En passant target square part
     fen << ' ';
-    if (en_passant_square == -1)
+    if (en_passant_square.exists())
     {
         fen << '-';
     }
     else
     {
-        int file = en_passant_square % 8;
-        int rank = en_passant_square / 8;
-        fen << static_cast<char>('a' + file) << (rank + 1);
+        fen << static_cast<char>('a' + en_passant_square.file) << (en_passant_square.rank + 1);
     }
 
     // 5. Half-move clock and 6. Full-move number
@@ -178,11 +176,11 @@ std::vector<std::string> BoardRepresentation::list_next_legal_moves() const
 }
 
 // Method to play move in internal memory
-bool BoardRepresentation::make_move(Move &move)
+void BoardRepresentation::make_move(Move &move)
 {
     // References to indexes in the board representation array
-    char &start_index = board[move.start_square.rank][move.start_square.file];
-    char &end_index = board[move.to_square.rank][move.to_square.file];
+    char &piece_on_start_square = board[move.start_square.rank][move.start_square.file];
+    char &piece_on_target_square = board[move.to_square.rank][move.to_square.file];
 
     // Determine which piece is moving and its color
     char moving_piece = board[move.start_square.rank][move.start_square.file];
@@ -195,7 +193,7 @@ bool BoardRepresentation::make_move(Move &move)
     if (is_white_piece)
     {
         // Check if the target square contains a black piece
-        if (end_index >= 'a' && end_index <= 'z') // Lowercase letters represent black pieces
+        if (piece_on_target_square >= 'a' && piece_on_target_square <= 'z') // Lowercase letters represent black pieces
         {
             is_capture = true;
         }
@@ -203,41 +201,116 @@ bool BoardRepresentation::make_move(Move &move)
     else
     {
         // Check if the target square contains a white piece
-        if (end_index >= 'A' && end_index <= 'Z') // Uppercase letters represent white pieces
+        if (piece_on_target_square >= 'A' && piece_on_target_square <= 'Z') // Uppercase letters represent white pieces
         {
             is_capture = true;
         }
     }
 
+    // Handle castling rights for king moves
+    if ((black_can_castle_kingside || black_can_castle_queenside) && (piece_on_start_square == 'k'))
+    {
+        black_can_castle_kingside = false;
+        black_can_castle_queenside = false;
+    }
+
+    if ((white_can_castle_kingside || white_can_castle_queenside) && (piece_on_start_square == 'K'))
+    {
+        white_can_castle_kingside = false;
+        white_can_castle_queenside = false;
+    }
+
+    // Handle castling rights for rook moves and captures
+    if (white_can_castle_kingside)
+    {
+        if ((move.start_square.rank == 0 && move.start_square.file == 7) ||
+            move.to_square.rank == 0 && move.to_square.file == 7)
+        {
+            white_can_castle_kingside = false;
+        }
+    }
+
+    if (white_can_castle_queenside)
+    {
+        if ((move.start_square.rank == 0 && move.start_square.file == 0) ||
+            move.to_square.rank == 0 && move.to_square.file == 0)
+        {
+            white_can_castle_queenside = false;
+        }
+    }
+
+    if (black_can_castle_kingside)
+    {
+        if ((move.start_square.rank == 7 && move.start_square.file == 7) ||
+            move.to_square.rank == 7 && move.to_square.file == 7)
+        {
+            black_can_castle_kingside = false;
+        }
+    }
+
+    if (black_can_castle_queenside)
+    {
+        if ((move.start_square.rank == 7 && move.start_square.file == 0) ||
+            move.to_square.rank == 7 && move.to_square.file == 0)
+        {
+            black_can_castle_queenside = false;
+        }
+    }
+
     // All moves require clearing the starting square
-    start_index = 'e';
+    piece_on_start_square = 'e';
 
     // Set the value in the target square to that of the moving piece except for promotions
     if (move.promotion_piece == 'x')
     {
-        end_index = moving_piece;
+        piece_on_target_square = moving_piece;
     }
     else
     {
-        end_index = move.promotion_piece;
+        piece_on_target_square = move.promotion_piece;
     }
 
     if (move.is_castle)
     {
-        // handle castle
-        return true;
+        if (is_white_piece)
+        {
+            if (move.to_square.file == 6)
+            {
+                board[5][0] = 'R';
+                board[7][0] = 'e';
+            }
+            else
+            {
+                board[3][0] = 'R';
+                board[0][0] = 'e';
+            }
+        }
+        // black castles
+        else
+        {
+            if (move.to_square.file == 6)
+            {
+                board[5][7] = 'R';
+                board[7][7] = 'e';
+            }
+            else
+            {
+                board[5][7] = 'R';
+                board[7][7] = 'e';
+            }
+        }
     }
 
     if (move.is_enpassant)
     {
-        // handle en passant
-        return true;
-    }
-
-    if (move.promotion_piece != 'x')
-    {
-        // handle promotion
-        return true;
+        if (is_white_piece)
+        {
+            board[move.to_square.rank - 1][move.to_square.file] = 'e';
+        }
+        else
+        {
+            board[move.to_square.rank + 1][move.to_square.file] = 'e';
+        }
     }
 
     // Update fullmove number
@@ -261,12 +334,10 @@ bool BoardRepresentation::make_move(Move &move)
     {
         halfmove_clock++;
     }
-
-    return true;
 }
 
 // Method to play move from UCI command
-bool BoardRepresentation::make_move(const std::string &move)
+void BoardRepresentation::make_move(const std::string &move)
 {
     print_board();
 
@@ -311,11 +382,10 @@ bool BoardRepresentation::make_move(const std::string &move)
     }
 
     // Create move structure
-    Move move = Move(from_rank_int, from_file_int, to_rank_int, to_file_int, is_en_passant, is_castle, promotion_piece);
+    Move struct_move = Move(from_rank_int, from_file_int, to_rank_int, to_file_int, is_en_passant, is_castle, promotion_piece);
 
-    bool status = make_move(move);
+    make_move(struct_move);
     print_board();
-    return status;
 }
 
 // Methods for specific game states
