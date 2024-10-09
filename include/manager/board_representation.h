@@ -43,23 +43,14 @@ private:
     bool white_to_move; // True if it's white's turn, false for black
 
     // En passant square
-    int en_passant_square; // -1 if no en passant is available
+    Square en_passant_square; // -1 if no en passant is available
 
     int halfmove_clock;  // Fifty-move rule counter
     int fullmove_number; // Number of full moves
 
     // Helper methods for legal move generation and game status checks
     wchar_t get_piece_at_square(int square) const;                                       // Get the piece at a square
-    bool remove_piece_from_square(int square, char &moving_piece, bool &is_white_piece); // Remove a piece from a square
-    void handle_captures_and_castling_rights(int to_square, bool is_white_piece);
-    bool remove_white_piece_from_square(int square);
-    bool remove_black_piece_from_square(int square);
-    void handle_pawn_promotion(int to_square, char promotion_piece, bool is_white_piece);
-    void handle_regular_move(int from_square, int to_square, char moving_piece, bool is_white_piece,
-                             bool &is_castling_move, bool &is_double_pawn_push);
-    void update_en_passant_square(char moving_piece, int from_square, int to_square, bool is_double_pawn_push);
-    void remove_pawn_enpassant(int square, bool is_white_piece);
-    bool make_move(Move move); // Play move internally
+    bool make_move(Move &move); // Play move internally
 };
 
 #endif // BOARD_REPRESENTATION_H

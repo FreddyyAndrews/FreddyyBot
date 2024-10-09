@@ -10,16 +10,16 @@ struct Move
 
     bool is_enpassant;
     bool is_castle;
-    bool is_promotion;
+    char promotion_piece;
 
     // Constructor to initialize the move
     Move(int start_rank, int start_file, int to_rank, int to_file,
-         bool enpassant = false, bool castle = false, bool promotion = false)
+         bool enpassant = false, bool castle = false, char promotion = 'x')
         : start_square(start_rank, start_file), // Initialize start square
           to_square(to_rank, to_file),          // Initialize destination square
           is_enpassant(enpassant),
           is_castle(castle),
-          is_promotion(promotion)
+          promotion_piece(promotion)
     {
     }
 };

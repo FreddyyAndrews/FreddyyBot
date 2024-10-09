@@ -177,66 +177,25 @@ std::vector<std::string> BoardRepresentation::list_next_legal_moves() const
     return {"e2e4", "d2d4", "g1f3"};
 }
 
-// TODO: Implement this method
-bool BoardRepresentation::make_move(Move move)
+// Method to play move in internal memory
+bool BoardRepresentation::make_move(Move &move)
 {
-    return false;
-}
-
-bool BoardRepresentation::make_move(const std::string &move)
-{
-    print_board();
-    // Extract the from and to squares from the move string
-    std::string from_square_str = move.substr(0, 2);
-    std::string to_square_str = move.substr(2, 2);
-    char promotion_piece = '\0';
-
-    // Handle promotion (e.g., "e7e8q")
-    if (move.length() == 5)
-    {
-        promotion_piece = move[4];
-    }
-
-    // Convert algebraic notation to square indices (0-63)
-    int from_square = algebraic_to_square(from_square_str);
-    int to_square = algebraic_to_square(to_square_str);
-
-    if (from_square == -1 || to_square == -1)
-    {
-        std::cerr << "Invalid move: " << move << std::endl;
-        return false;
-    }
+    // References to indexes in the board representation array
+    char &start_index = board[move.start_square.rank][move.start_square.file];
+    char &end_index = board[move.to_square.rank][move.to_square.file];
 
     // Determine which piece is moving and its color
-    char moving_piece = '\0';
-    bool is_white_piece = false;
-
-    // Flags for special moves
-    bool is_castling_move = false;
-    bool is_double_pawn_push = false;
-
-    // Identify the moving piece and update the corresponding bitboard
-    if (!remove_piece_from_square(from_square, moving_piece, is_white_piece))
-    {
-        std::cerr << "No piece found at square " << from_square_str << std::endl;
-        return false;
-    }
-
-    // Convert the 1D index to 2D board coordinates
-    int to_rank = to_square / 8;
-    int to_file = to_square % 8;
+    char moving_piece = board[move.start_square.rank][move.start_square.file];
+    bool is_white_piece = (moving_piece >= 'A' && moving_piece <= 'Z');
 
     // Calculate is_capture by checking if the to_square is occupied by an opponent's piece
     bool is_capture = false;
-    uint64_t opponent_pieces = 0;
 
-    // Check if the target square is occupied by an opponent's piece
-    char piece_on_target_square = board[to_rank][to_file];
-
+    // Check if the move is a capture (for managing half-move clock and castling permissions)
     if (is_white_piece)
     {
         // Check if the target square contains a black piece
-        if (piece_on_target_square >= 'a' && piece_on_target_square <= 'z') // Lowercase letters represent black pieces
+        if (end_index >= 'a' && end_index <= 'z') // Lowercase letters represent black pieces
         {
             is_capture = true;
         }
@@ -244,59 +203,42 @@ bool BoardRepresentation::make_move(const std::string &move)
     else
     {
         // Check if the target square contains a white piece
-        if (piece_on_target_square >= 'A' && piece_on_target_square <= 'Z') // Uppercase letters represent white pieces
+        if (end_index >= 'A' && end_index <= 'Z') // Uppercase letters represent white pieces
         {
             is_capture = true;
         }
     }
 
-    if (opponent_pieces & (1ULL << to_square))
-    {
-        is_capture = true;
-    }
+    // All moves require clearing the starting square
+    start_index = 'e';
 
-    // Determine if the move is an en passant capture
-    bool is_en_passant_capture = false;
-    if ((moving_piece == 'P' || moving_piece == 'p') && abs(from_square - to_square) % 8 != 0)
+    // Set the value in the target square to that of the moving piece except for promotions
+    if (move.promotion_piece == 'x')
     {
-        // Pawn is moving diagonally
-        if (en_passant_square == to_square)
-        {
-            // Destination square matches en passant square
-            is_en_passant_capture = true;
-            is_capture = true; // Set capture flag
-        }
-    }
-
-    // Handle captures and en passant
-    if (is_capture)
-    {
-        if (is_en_passant_capture)
-        {
-            // Remove the opponent's pawn from the square behind the en passant square
-            int captured_pawn_square = is_white_piece ? to_square - 8 : to_square + 8;
-            remove_pawn_enpassant(captured_pawn_square, is_white_piece);
-        }
-        else
-        {
-            // Handle normal captures
-            handle_captures_and_castling_rights(to_square, is_white_piece);
-        }
-    }
-
-    // Handle pawn promotions and regular moves
-    uint64_t to_bit = (1ULL << to_square);
-    if (promotion_piece != '\0' && (moving_piece == 'P' || moving_piece == 'p'))
-    {
-        handle_pawn_promotion(to_bit, promotion_piece, is_white_piece);
+        end_index = moving_piece;
     }
     else
     {
-        handle_regular_move(from_square, to_square, moving_piece, is_white_piece, is_castling_move, is_double_pawn_push);
+        end_index = move.promotion_piece;
     }
 
-    // Update en passant square
-    update_en_passant_square(moving_piece, from_square, to_square, is_double_pawn_push);
+    if (move.is_castle)
+    {
+        // handle castle
+        return true;
+    }
+
+    if (move.is_enpassant)
+    {
+        // handle en passant
+        return true;
+    }
+
+    if (move.promotion_piece != 'x')
+    {
+        // handle promotion
+        return true;
+    }
 
     // Update fullmove number
     if (!white_to_move)
@@ -320,265 +262,60 @@ bool BoardRepresentation::make_move(const std::string &move)
         halfmove_clock++;
     }
 
+    return true;
+}
+
+// Method to play move from UCI command
+bool BoardRepresentation::make_move(const std::string &move)
+{
     print_board();
-    return true;
-}
 
-void BoardRepresentation::remove_pawn_enpassant(int square, bool is_white_piece)
-{
-    // Convert the 1D square index to 2D board coordinates
-    int rank = square / 8;
-    int file = square % 8;
+    // Extract the from and to squares from the move string
+    char from_file = move[0]; // File of the 'from' square (e.g., 'e')
+    char from_rank = move[1]; // Rank of the 'from' square (e.g., '2')
+    char to_file = move[2];   // File of the 'to' square (e.g., 'e')
+    char to_rank = move[3];   // Rank of the 'to' square (e.g., '4')
 
-    char &piece_on_square = board[rank][file];
+    char promotion_piece = 'x';
 
-    if (is_white_piece)
+    // Handle promotion (e.g., "e7e8q")
+    if (move.length() == 5)
     {
-        // Opponent is black
-        if (piece_on_square == 'p') // Black pawn
-        {
-            piece_on_square = 'e'; // Set the square to empty
-        }
-        else
-        {
-            std::cerr << "Error: No black pawn to capture en passant on square " << square_to_algebraic(square) << std::endl;
-        }
-    }
-    else
-    {
-        // Opponent is white
-        if (piece_on_square == 'P') // White pawn
-        {
-            piece_on_square = 'e'; // Set the square to empty
-        }
-        else
-        {
-            std::cerr << "Error: No white pawn to capture en passant on square " << square_to_algebraic(square) << std::endl;
-        }
-    }
-}
-
-bool BoardRepresentation::remove_piece_from_square(int square, char &moving_piece, bool &is_white_piece)
-{
-    // Convert 1D square index to 2D board coordinates
-    int rank = square / 8;
-    int file = square % 8;
-
-    // Get the piece from the board
-    char piece_on_square = board[rank][file];
-
-    // Check if there's a piece on the square
-    if (piece_on_square == 'e') // Empty square
-    {
-        return false;
+        promotion_piece = move[4];
     }
 
-    // Set the moving piece and determine the color
-    moving_piece = piece_on_square;
-    is_white_piece = (piece_on_square >= 'A' && piece_on_square <= 'Z'); // Uppercase = white piece
+    // Convert UCI move to rank and file
+    int from_rank_int = from_rank - '1'; // Convert char rank to int (e.g., '2' -> 1)
+    int from_file_int = from_file - 'a'; // Convert char file to int (e.g., 'e' -> 4)
 
-    // Remove the piece from the board by setting the square to 'e' (empty)
-    board[rank][file] = 'e';
+    int to_rank_int = to_rank - '1'; // Convert char rank to int (e.g., '4' -> 3)
+    int to_file_int = to_file - 'a'; // Convert char file to int (e.g., 'e' -> 4)
 
-    return true;
-}
+    bool is_en_passant = false;
+    bool is_castle = false;
 
-void BoardRepresentation::handle_captures_and_castling_rights(int to_square, bool is_white_piece)
-{
-    bool piece_captured = false;
-    if (is_white_piece)
+    // If diagonal pawn move onto en passant square move is en passant
+    if ((board[to_rank_int][to_file_int] == 'p' || board[to_rank_int][to_file_int] == 'P') &&
+        from_rank_int != to_rank_int &&
+        en_passant_square.rank == to_rank_int &&
+        en_passant_square.file == to_file_int)
     {
-        // Check for black pieces to capture
-        if (remove_black_piece_from_square(to_square))
-        {
-            piece_captured = true;
-            // Update black castling rights if a rook is captured
-            if (to_square == algebraic_to_square("a8"))
-                black_can_castle_queenside = false;
-            else if (to_square == algebraic_to_square("h8"))
-                black_can_castle_kingside = false;
-        }
-    }
-    else
-    {
-        // Check for white pieces to capture
-        if (remove_white_piece_from_square(to_square))
-        {
-            piece_captured = true;
-            // Update white castling rights if a rook is captured
-            if (to_square == algebraic_to_square("a1"))
-                white_can_castle_queenside = false;
-            else if (to_square == algebraic_to_square("h1"))
-                white_can_castle_kingside = false;
-        }
-    }
-}
-
-bool BoardRepresentation::remove_white_piece_from_square(int square)
-{
-    // Convert 1D square index to 2D board coordinates
-    int rank = square / 8;
-    int file = square % 8;
-
-    // Check if the piece is a white piece (uppercase letter) on the board
-    char piece_on_square = board[rank][file];
-    if (piece_on_square == 'P' || piece_on_square == 'N' || piece_on_square == 'B' ||
-        piece_on_square == 'R' || piece_on_square == 'Q' || piece_on_square == 'K')
-    {
-        // Remove the piece by setting the square to 'e' (empty)
-        board[rank][file] = 'e';
-        return true;
+        is_en_passant = true;
     }
 
-    return false;
-}
-
-bool BoardRepresentation::remove_black_piece_from_square(int square)
-{
-    // Convert 1D square index to 2D board coordinates
-    int rank = square / 8;
-    int file = square % 8;
-
-    // Check if the piece is a black piece (lowercase letter) on the board
-    char piece_on_square = board[rank][file];
-    if (piece_on_square == 'p' || piece_on_square == 'n' || piece_on_square == 'b' ||
-        piece_on_square == 'r' || piece_on_square == 'q' || piece_on_square == 'k')
+    // If king move from e1 to g1 or e1 to c1 (only possible if a castle)
+    if ((board[to_rank_int][to_file_int] == 'k' || board[to_rank_int][to_file_int] == 'K') &&
+        ((from_rank_int == 4 && to_rank_int == 6) || (from_rank_int == 4 && to_rank_int == 2)))
     {
-        // Remove the piece by setting the square to 'e' (empty)
-        board[rank][file] = 'e';
-        return true;
+        is_castle = true;
     }
 
-    return false;
-}
+    // Create move structure
+    Move move = Move(from_rank_int, from_file_int, to_rank_int, to_file_int, is_en_passant, is_castle, promotion_piece);
 
-void BoardRepresentation::handle_pawn_promotion(int to_square, char promotion_piece, bool is_white_piece)
-{
-    // Convert the 1D to_square index to 2D board coordinates
-    int rank = to_square / 8;
-    int file = to_square % 8;
-
-    // If the piece is white, convert promotion_piece to uppercase
-    if (is_white_piece)
-    {
-        promotion_piece = std::toupper(promotion_piece); // Ensure uppercase for white pieces
-    }
-    else
-    {
-        promotion_piece = std::tolower(promotion_piece); // Ensure lowercase for black pieces
-    }
-
-    // Set the promoted piece in the board array
-    board[rank][file] = promotion_piece;
-}
-
-void BoardRepresentation::handle_regular_move(int from_square, int to_square, char moving_piece, bool is_white_piece,
-                                              bool &is_castling_move, bool &is_double_pawn_push)
-{
-    // Convert 1D indices to 2D board coordinates
-    int from_rank = from_square / 8, from_file = from_square % 8;
-    int to_rank = to_square / 8, to_file = to_square % 8;
-
-    // Move the piece to the new square
-    board[to_rank][to_file] = moving_piece;
-    board[from_rank][from_file] = 'e'; // Set the from square to empty
-
-    // Handle double pawn push
-    if (moving_piece == 'P' && from_rank == 1 && to_rank == 3)
-        is_double_pawn_push = true;
-    else if (moving_piece == 'p' && from_rank == 6 && to_rank == 4)
-        is_double_pawn_push = true;
-
-    // Handle castling
-    if (moving_piece == 'K' && from_square == algebraic_to_square("e1"))
-    {
-        white_can_castle_kingside = white_can_castle_queenside = false;
-        if (to_square == algebraic_to_square("g1"))
-        {
-            is_castling_move = true;
-            board[7][5] = 'R'; // Move rook
-            board[7][7] = 'e'; // Clear the original rook square
-        }
-        else if (to_square == algebraic_to_square("c1"))
-        {
-            is_castling_move = true;
-            board[7][3] = 'R'; // Move rook
-            board[7][0] = 'e'; // Clear the original rook square
-        }
-    }
-    else if (moving_piece == 'k' && from_square == algebraic_to_square("e8"))
-    {
-        black_can_castle_kingside = black_can_castle_queenside = false;
-        if (to_square == algebraic_to_square("g8"))
-        {
-            is_castling_move = true;
-            board[0][5] = 'r'; // Move rook
-            board[0][7] = 'e'; // Clear the original rook square
-        }
-        else if (to_square == algebraic_to_square("c8"))
-        {
-            is_castling_move = true;
-            board[0][3] = 'r'; // Move rook
-            board[0][0] = 'e'; // Clear the original rook square
-        }
-    }
-
-    // Handle rook moves that affect castling rights
-    if (moving_piece == 'R' && from_square == algebraic_to_square("a1"))
-        white_can_castle_queenside = false;
-    if (moving_piece == 'R' && from_square == algebraic_to_square("h1"))
-        white_can_castle_kingside = false;
-    if (moving_piece == 'r' && from_square == algebraic_to_square("a8"))
-        black_can_castle_queenside = false;
-    if (moving_piece == 'r' && from_square == algebraic_to_square("h8"))
-        black_can_castle_kingside = false;
-}
-
-void BoardRepresentation::update_en_passant_square(char moving_piece, int from_square, int to_square, bool is_double_pawn_push)
-{
-    if (moving_piece == 'P' || moving_piece == 'p')
-    {
-        if (is_double_pawn_push)
-        {
-            int rank_diff = to_square / 8 - from_square / 8;
-            en_passant_square = from_square + (rank_diff / 2) * 8;
-        }
-        else
-        {
-            en_passant_square = -1;
-        }
-    }
-    else
-    {
-        en_passant_square = -1;
-    }
-}
-
-int BoardRepresentation::algebraic_to_square(const std::string &square_str) const
-{
-    if (square_str.length() != 2)
-    {
-        return -1;
-    }
-    char file_char = square_str[0];
-    char rank_char = square_str[1];
-    int file = file_char - 'a';
-    int rank = rank_char - '1';
-    if (file < 0 || file > 7 || rank < 0 || rank > 7)
-    {
-        return -1;
-    }
-    return rank * 8 + file;
-}
-
-std::string BoardRepresentation::square_to_algebraic(int square) const
-{
-    int file = square % 8;
-    int rank = square / 8;
-    std::string algebraic;
-    algebraic += ('a' + file);
-    algebraic += ('1' + rank);
-    return algebraic;
+    bool status = make_move(move);
+    print_board();
+    return status;
 }
 
 // Methods for specific game states

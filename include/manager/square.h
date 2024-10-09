@@ -10,6 +10,12 @@ struct Square
 
     // Constructor to initialize rank and file
     Square(int r, int f) : rank(r), file(f) {}
+
+    // Overload the equality operator
+    bool operator==(const Square &other) const
+    {
+        return rank == other.rank && file == other.file;
+    }
 };
 
 #endif // SQUARE_H
