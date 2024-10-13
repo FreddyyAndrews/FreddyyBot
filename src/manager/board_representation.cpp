@@ -153,12 +153,13 @@ std::string BoardRepresentation::output_fen_position() const
 
     // 4. En passant target square part
     fen << ' ';
-    if (en_passant_square.exists())
+    if (!en_passant_square.exists())
     {
         fen << '-';
     }
     else
     {
+        // Increment since we are using base 0 indexing
         fen << static_cast<char>('a' + en_passant_square.file) << (en_passant_square.rank + 1);
     }
 
@@ -187,25 +188,8 @@ void BoardRepresentation::make_move(Move &move)
     bool is_white_piece = (moving_piece >= 'A' && moving_piece <= 'Z');
 
     // Calculate is_capture by checking if the to_square is occupied by an opponent's piece
-    bool is_capture = false;
-
-    // Check if the move is a capture (for managing half-move clock and castling permissions)
-    if (is_white_piece)
-    {
-        // Check if the target square contains a black piece
-        if (piece_on_target_square >= 'a' && piece_on_target_square <= 'z') // Lowercase letters represent black pieces
-        {
-            is_capture = true;
-        }
-    }
-    else
-    {
-        // Check if the target square contains a white piece
-        if (piece_on_target_square >= 'A' && piece_on_target_square <= 'Z') // Uppercase letters represent white pieces
-        {
-            is_capture = true;
-        }
-    }
+    bool is_capture = (piece_on_target_square != 'e');
+    bool is_pawn_move = (moving_piece == 'p' || moving_piece == 'P');
 
     // Handle castling rights for king moves
     if ((black_can_castle_kingside || black_can_castle_queenside) && (piece_on_start_square == 'k'))
@@ -213,48 +197,35 @@ void BoardRepresentation::make_move(Move &move)
         black_can_castle_kingside = false;
         black_can_castle_queenside = false;
     }
-
-    if ((white_can_castle_kingside || white_can_castle_queenside) && (piece_on_start_square == 'K'))
+    else if ((white_can_castle_kingside || white_can_castle_queenside) && (piece_on_start_square == 'K'))
     {
         white_can_castle_kingside = false;
         white_can_castle_queenside = false;
     }
 
     // Handle castling rights for rook moves and captures
-    if (white_can_castle_kingside)
+    if ((move.start_square.rank == 0 && move.start_square.file == 7) ||
+        move.to_square.rank == 0 && move.to_square.file == 7)
     {
-        if ((move.start_square.rank == 0 && move.start_square.file == 7) ||
-            move.to_square.rank == 0 && move.to_square.file == 7)
-        {
-            white_can_castle_kingside = false;
-        }
+        white_can_castle_kingside = false;
+    }
+   
+    else if ((move.start_square.rank == 0 && move.start_square.file == 0) ||
+        move.to_square.rank == 0 && move.to_square.file == 0)
+    {
+        white_can_castle_queenside = false;
     }
 
-    if (white_can_castle_queenside)
+    else if ((move.start_square.rank == 7 && move.start_square.file == 7) ||
+        move.to_square.rank == 7 && move.to_square.file == 7)
     {
-        if ((move.start_square.rank == 0 && move.start_square.file == 0) ||
-            move.to_square.rank == 0 && move.to_square.file == 0)
-        {
-            white_can_castle_queenside = false;
-        }
+        black_can_castle_kingside = false;
     }
 
-    if (black_can_castle_kingside)
+    else if ((move.start_square.rank == 7 && move.start_square.file == 0) ||
+        move.to_square.rank == 7 && move.to_square.file == 0)
     {
-        if ((move.start_square.rank == 7 && move.start_square.file == 7) ||
-            move.to_square.rank == 7 && move.to_square.file == 7)
-        {
-            black_can_castle_kingside = false;
-        }
-    }
-
-    if (black_can_castle_queenside)
-    {
-        if ((move.start_square.rank == 7 && move.start_square.file == 0) ||
-            move.to_square.rank == 7 && move.to_square.file == 0)
-        {
-            black_can_castle_queenside = false;
-        }
+        black_can_castle_queenside = false;
     }
 
     // All moves require clearing the starting square
@@ -267,41 +238,52 @@ void BoardRepresentation::make_move(Move &move)
     }
     else
     {
-        piece_on_target_square = move.promotion_piece;
+        if (is_white_piece)
+        {
+            piece_on_target_square = move.promotion_piece - 32;
+        }
+        else
+        {
+            piece_on_target_square = move.promotion_piece;
+        }
     }
 
+    // Handle moving rook in castling case
     if (move.is_castle)
     {
+        // White castles
         if (is_white_piece)
         {
             if (move.to_square.file == 6)
             {
-                board[5][0] = 'R';
-                board[7][0] = 'e';
+                board[0][5] = 'R';
+                board[0][7] = 'e';
             }
             else
             {
-                board[3][0] = 'R';
+                board[0][3] = 'R';
                 board[0][0] = 'e';
             }
+            // castling rights are already revoked for king moves
         }
         // black castles
         else
         {
             if (move.to_square.file == 6)
             {
-                board[5][7] = 'R';
+                board[7][5] = 'r';
                 board[7][7] = 'e';
             }
             else
             {
-                board[5][7] = 'R';
-                board[7][7] = 'e';
+                board[7][3] = 'r';
+                board[7][0] = 'e';
             }
         }
     }
 
-    if (move.is_enpassant)
+    // remove opponent pawn for en passant move
+    else if (move.is_enpassant)
     {
         if (is_white_piece)
         {
@@ -313,6 +295,23 @@ void BoardRepresentation::make_move(Move &move)
         }
     }
 
+    // Add en passant square for double pawn push (white)
+    if (moving_piece == 'P' && move.to_square.rank - move.start_square.rank == 2)
+    {
+        en_passant_square = Square(move.to_square.rank - 1, move.to_square.file);
+    }
+
+    // Add en passant square for double pawn push black
+    else if (moving_piece == 'p' && move.to_square.rank - move.start_square.rank == -2)
+    {
+        en_passant_square = Square(move.to_square.rank + 1, move.to_square.file);
+    }
+
+    else if (en_passant_square.exists())
+    {
+        en_passant_square = Square(-1, -1);
+    }
+
     // Update fullmove number
     if (!white_to_move)
     {
@@ -322,9 +321,6 @@ void BoardRepresentation::make_move(Move &move)
 
     // Update the active color
     white_to_move = !white_to_move;
-
-    // Handle halfmove clock
-    bool is_pawn_move = (moving_piece == 'P' || moving_piece == 'p');
 
     if (is_pawn_move || is_capture)
     {
@@ -366,17 +362,18 @@ void BoardRepresentation::make_move(const std::string &move)
     bool is_castle = false;
 
     // If diagonal pawn move onto en passant square move is en passant
-    if ((board[to_rank_int][to_file_int] == 'p' || board[to_rank_int][to_file_int] == 'P') &&
-        from_rank_int != to_rank_int &&
+    if ((board[from_rank_int][from_file_int] == 'p' || board[from_rank_int][from_file_int] == 'P') &&
+        from_file_int != to_file_int &&
         en_passant_square.rank == to_rank_int &&
         en_passant_square.file == to_file_int)
     {
+        std::cout << "En passant" << std::endl;
         is_en_passant = true;
     }
 
-    // If king move from e1 to g1 or e1 to c1 (only possible if a castle)
-    if ((board[to_rank_int][to_file_int] == 'k' || board[to_rank_int][to_file_int] == 'K') &&
-        ((from_rank_int == 4 && to_rank_int == 6) || (from_rank_int == 4 && to_rank_int == 2)))
+    // If king move from e to g or e to c (only possible if a castle)
+    if ((board[from_rank_int][from_file_int] == 'k' || board[from_rank_int][from_file_int] == 'K') &&
+        ((from_file_int == 4 && to_file_int == 6) || (from_file_int == 4 && to_file_int == 2)))
     {
         is_castle = true;
     }
