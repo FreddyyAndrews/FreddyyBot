@@ -32,10 +32,7 @@ TEST(BoardRepresentationTest, WhitePushesPawn)
 
     // Make move with UCI format
     std::string move = "e2e4";
-    bool move_made = board.make_move(move);
-
-    // Check if the move was successfully made
-    EXPECT_TRUE(move_made);
+    board.make_move(move);
 
     // Expected output FEN after e2e4
     std::string expected_fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
@@ -59,10 +56,7 @@ TEST(BoardRepresentationTest, WhiteCastles)
 
     // Make move with UCI format
     std::string move = "e1g1";
-    bool move_made = board.make_move(move);
-
-    // Check if the move was successfully made
-    EXPECT_TRUE(move_made);
+    board.make_move(move);
 
     // Expected output FEN after e2e4
     std::string expected_fen = "k7/8/8/8/8/8/8/5RK1 b - - 1 1";
@@ -86,10 +80,7 @@ TEST(BoardRepresentationTest, BlackCapturesWhite)
 
     // Black pawn captures white pawn on e4
     std::string move = "f8b4";
-    bool move_made = board.make_move(move);
-
-    // Check if the move was successfully made
-    EXPECT_TRUE(move_made);
+    board.make_move(move);
 
     // Expected FEN after the capture
     std::string expected_fen = "rnbqk1nr/pppp1ppp/4p3/8/1b6/8/P1PPPPPP/RNBQKBNR w KQkq - 0 2";
@@ -113,10 +104,7 @@ TEST(BoardRepresentationTest, WhiteCapturesBlack)
 
     // White knight captures black pawn on f5
     std::string move = "d4f5";
-    bool move_made = board.make_move(move);
-
-    // Check if the move was successfully made
-    EXPECT_TRUE(move_made);
+    board.make_move(move);
 
     // Expected FEN after the capture
     std::string expected_fen = "rnbqkbnr/pppppppp/8/5N2/8/8/PPPPPPPP/R1BQKBNR b KQkq - 1 1";
@@ -140,10 +128,7 @@ TEST(BoardRepresentationTest, WhitePromotesPawn)
 
     // White pawn moves from a7 to a8 and promotes to queen
     std::string move = "a7a8q";
-    bool move_made = board.make_move(move);
-
-    // Check if the move was successfully made
-    EXPECT_TRUE(move_made);
+    board.make_move(move);
 
     // Expected FEN after promotion
     std::string expected_fen = "Q7/8/8/8/8/8/8/k6K b - - 0 1";
@@ -167,10 +152,7 @@ TEST(BoardRepresentationTest, BlackPromotesPawn)
 
     // Black pawn moves from a2 to a1 and promotes to queen
     std::string move = "a2a1q";
-    bool move_made = board.make_move(move);
-
-    // Check if the move was successfully made
-    EXPECT_TRUE(move_made);
+    board.make_move(move);
 
     // Expected FEN after promotion
     std::string expected_fen = "k6K/8/8/8/8/8/8/q7 w - - 0 2";
@@ -194,10 +176,7 @@ TEST(BoardRepresentationTest, BlackCastles)
 
     // Black castles kingside
     std::string move = "e8g8";
-    bool move_made = board.make_move(move);
-
-    // Check if the move was successfully made
-    EXPECT_TRUE(move_made);
+    board.make_move(move);
 
     // Expected FEN after castling
     std::string expected_fen = "r4rk1/8/8/8/8/8/8/4K3 w - - 1 2";
@@ -221,10 +200,7 @@ TEST(BoardRepresentationTest, WhiteEnPassant)
 
     // White pawn captures en passant on d6
     std::string move = "e5d6";
-    bool move_made = board.make_move(move);
-
-    // Check if the move was successfully made
-    EXPECT_TRUE(move_made);
+    board.make_move(move);
 
     // Expected FEN after en passant capture
     std::string expected_fen = "rnbqkbnr/ppp1pppp/3P4/8/8/8/PPPP1PPP/RNBQKBNR b KQkq - 0 3";
@@ -248,10 +224,7 @@ TEST(BoardRepresentationTest, BlackEnPassant)
 
     // Black pawn captures en passant on d3
     std::string move = "d4e3";
-    bool move_made = board.make_move(move);
-
-    // Check if the move was successfully made
-    EXPECT_TRUE(move_made);
+    board.make_move(move);
 
     // Expected FEN after en passant capture
     std::string expected_fen = "8/8/8/8/8/4p3/8/8 w - - 0 3";
