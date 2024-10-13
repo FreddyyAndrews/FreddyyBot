@@ -3,3 +3,4 @@ notes.md
 logs/
 reports/
 build/
+*.csv
