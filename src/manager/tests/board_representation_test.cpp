@@ -2,7 +2,7 @@
 #include "manager/board_representation.h"
 
 // Test to verify that input FEN matches output FEN
-TEST(BoardRepresentationTest, InputFenEqualsOutputFen)
+TEST(BoardRepresentationTest, InputFenEqualsOutputFenStartingPos)
 {
     // Initialize your BoardRepresentation class
     BoardRepresentation board;
@@ -30,6 +30,12 @@ TEST(BoardRepresentationTest, WhitePushesPawn)
     // Load the starting position
     board.input_fen_position(input_fen);
 
+    // Call the output_fen_position method and store the result
+    std::string test_fen = board.output_fen_position();
+
+    // Check if the input FEN matches the output FEN
+    EXPECT_EQ(input_fen, test_fen);
+
     // Make move with UCI format
     std::string move = "e2e4";
     board.make_move(move);
@@ -44,7 +50,7 @@ TEST(BoardRepresentationTest, WhitePushesPawn)
     EXPECT_EQ(expected_fen, output_fen);
 }
 
-TEST(BoardRepresentationTest, WhiteCastles)
+TEST(BoardRepresentationTest, WhiteCastlesKingSide)
 {
     BoardRepresentation board;
 
@@ -53,6 +59,12 @@ TEST(BoardRepresentationTest, WhiteCastles)
 
     // Load the starting position
     board.input_fen_position(input_fen);
+
+    // Call the output_fen_position method and store the result
+    std::string test_fen = board.output_fen_position();
+
+    // Check if the input FEN matches the output FEN
+    EXPECT_EQ(input_fen, test_fen);
 
     // Make move with UCI format
     std::string move = "e1g1";
@@ -78,6 +90,12 @@ TEST(BoardRepresentationTest, BlackCapturesWhite)
     // Load the position
     board.input_fen_position(input_fen);
 
+    // Call the output_fen_position method and store the result
+    std::string test_fen = board.output_fen_position();
+
+    // Check if the input FEN matches the output FEN
+    EXPECT_EQ(input_fen, test_fen);
+
     // Black pawn captures white pawn on e4
     std::string move = "f8b4";
     board.make_move(move);
@@ -101,6 +119,12 @@ TEST(BoardRepresentationTest, WhiteCapturesBlack)
 
     // Load the position
     board.input_fen_position(input_fen);
+
+    // Call the output_fen_position method and store the result
+    std::string test_fen = board.output_fen_position();
+
+    // Check if the input FEN matches the output FEN
+    EXPECT_EQ(input_fen, test_fen);
 
     // White knight captures black pawn on f5
     std::string move = "d4f5";
@@ -126,6 +150,12 @@ TEST(BoardRepresentationTest, WhitePromotesPawn)
     // Load the position
     board.input_fen_position(input_fen);
 
+    // Call the output_fen_position method and store the result
+    std::string test_fen = board.output_fen_position();
+
+    // Check if the input FEN matches the output FEN
+    EXPECT_EQ(input_fen, test_fen);
+
     // White pawn moves from a7 to a8 and promotes to queen
     std::string move = "a7a8q";
     board.make_move(move);
@@ -150,6 +180,12 @@ TEST(BoardRepresentationTest, BlackPromotesPawn)
     // Load the position
     board.input_fen_position(input_fen);
 
+    // Call the output_fen_position method and store the result
+    std::string test_fen = board.output_fen_position();
+
+    // Check if the input FEN matches the output FEN
+    EXPECT_EQ(input_fen, test_fen);
+
     // Black pawn moves from a2 to a1 and promotes to queen
     std::string move = "a2a1q";
     board.make_move(move);
@@ -164,7 +200,7 @@ TEST(BoardRepresentationTest, BlackPromotesPawn)
     EXPECT_EQ(expected_fen, output_fen);
 }
 
-TEST(BoardRepresentationTest, BlackCastles)
+TEST(BoardRepresentationTest, BlackCastlesKingSide)
 {
     BoardRepresentation board;
 
@@ -173,6 +209,12 @@ TEST(BoardRepresentationTest, BlackCastles)
 
     // Load the position
     board.input_fen_position(input_fen);
+
+    // Call the output_fen_position method and store the result
+    std::string test_fen = board.output_fen_position();
+
+    // Check if the input FEN matches the output FEN
+    EXPECT_EQ(input_fen, test_fen);
 
     // Black castles kingside
     std::string move = "e8g8";
@@ -198,6 +240,12 @@ TEST(BoardRepresentationTest, WhiteEnPassant)
     // Load the position
     board.input_fen_position(input_fen);
 
+    // Call the output_fen_position method and store the result
+    std::string test_fen = board.output_fen_position();
+
+    // Check if the input FEN matches the output FEN
+    EXPECT_EQ(input_fen, test_fen);
+
     // White pawn captures en passant on d6
     std::string move = "e5d6";
     board.make_move(move);
@@ -222,12 +270,78 @@ TEST(BoardRepresentationTest, BlackEnPassant)
     // Load the position
     board.input_fen_position(input_fen);
 
+    // Call the output_fen_position method and store the result
+    std::string test_fen = board.output_fen_position();
+
+    // Check if the input FEN matches the output FEN
+    EXPECT_EQ(input_fen, test_fen);
+
     // Black pawn captures en passant on d3
     std::string move = "d4e3";
     board.make_move(move);
 
     // Expected FEN after en passant capture
     std::string expected_fen = "8/8/8/8/8/4p3/8/8 w - - 0 3";
+
+    // Get the output FEN after the move
+    std::string output_fen = board.output_fen_position();
+
+    // Check if the output FEN matches the expected FEN
+    EXPECT_EQ(expected_fen, output_fen);
+}
+
+TEST(BoardRepresentationTest, BlackCastlesQueenSide)
+{
+    BoardRepresentation board;
+
+    // FEN string where black can castle kingside
+    std::string input_fen = "r3k3/8/8/8/8/8/8/K7 b kq - 0 1";
+
+    // Load the position
+    board.input_fen_position(input_fen);
+
+    // Call the output_fen_position method and store the result
+    std::string test_fen = board.output_fen_position();
+
+    // Check if the input FEN matches the output FEN
+    EXPECT_EQ(input_fen, test_fen);
+
+    // Black castles kingside
+    std::string move = "e8c8";
+    board.make_move(move);
+
+    // Expected FEN after castling
+    std::string expected_fen = "2kr4/8/8/8/8/8/8/K7 w - - 1 2";
+
+    // Get the output FEN after the move
+    std::string output_fen = board.output_fen_position();
+
+    // Check if the output FEN matches the expected FEN
+    EXPECT_EQ(expected_fen, output_fen);
+}
+
+TEST(BoardRepresentationTest, WhiteCastlesQueenSide)
+{
+    BoardRepresentation board;
+
+    // FEN string where black can castle kingside
+    std::string input_fen = "7k/8/8/8/8/8/8/R3K3 w KQ - 0 1";
+
+    // Load the position
+    board.input_fen_position(input_fen);
+
+    // Call the output_fen_position method and store the result
+    std::string test_fen = board.output_fen_position();
+
+    // Check if the input FEN matches the output FEN
+    EXPECT_EQ(input_fen, test_fen);
+
+    // Black castles kingside
+    std::string move = "e1c1";
+    board.make_move(move);
+
+    // Expected FEN after castling
+    std::string expected_fen = "7k/8/8/8/8/8/8/2KR4 b - - 1 1";
 
     // Get the output FEN after the move
     std::string output_fen = board.output_fen_position();
