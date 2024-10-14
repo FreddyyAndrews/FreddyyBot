@@ -50,6 +50,36 @@ TEST(BoardRepresentationTest, WhitePushesPawn)
     EXPECT_EQ(expected_fen, output_fen);
 }
 
+TEST(BoardRepresentationTest, BlackPushesPawn)
+{
+    BoardRepresentation board;
+
+    // FEN string representing a starting position
+    std::string input_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1";
+
+    // Load the starting position
+    board.input_fen_position(input_fen);
+
+    // Call the output_fen_position method and store the result
+    std::string test_fen = board.output_fen_position();
+
+    // Check if the input FEN matches the output FEN
+    EXPECT_EQ(input_fen, test_fen);
+
+    // Make move with UCI format
+    std::string move = "h7h5";
+    board.make_move(move);
+
+    // Expected output FEN after e2e4
+    std::string expected_fen = "rnbqkbnr/ppppppp1/8/7p/8/8/PPPPPPPP/RNBQKBNR w KQkq h6 0 2";
+
+    // Get the output FEN after the move
+    std::string output_fen = board.output_fen_position();
+
+    // Check if the output FEN matches the expected FEN
+    EXPECT_EQ(expected_fen, output_fen);
+}
+
 TEST(BoardRepresentationTest, WhiteCastlesKingSide)
 {
     BoardRepresentation board;
@@ -111,6 +141,36 @@ TEST(BoardRepresentationTest, BlackCapturesWhite)
 }
 
 TEST(BoardRepresentationTest, WhiteCapturesBlack)
+{
+    BoardRepresentation board;
+
+    // FEN string where black pawn can capture white pawn
+    std::string input_fen = "6k1/8/2n5/8/8/8/8/1KR5 w - - 0 1";
+
+    // Load the position
+    board.input_fen_position(input_fen);
+
+    // Call the output_fen_position method and store the result
+    std::string test_fen = board.output_fen_position();
+
+    // Check if the input FEN matches the output FEN
+    EXPECT_EQ(input_fen, test_fen);
+
+    // Black pawn captures white pawn on e4
+    std::string move = "c1c6";
+    board.make_move(move);
+
+    // Expected FEN after the capture
+    std::string expected_fen = "6k1/8/2R5/8/8/8/8/1K6 b - - 0 1";
+
+    // Get the output FEN after the move
+    std::string output_fen = board.output_fen_position();
+
+    // Check if the output FEN matches the expected FEN
+    EXPECT_EQ(expected_fen, output_fen);
+}
+
+TEST(BoardRepresentationTest, WhiteMovesKnight)
 {
     BoardRepresentation board;
 
