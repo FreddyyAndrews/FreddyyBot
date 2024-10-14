@@ -49,8 +49,8 @@ private:
     int fullmove_number; // Number of full moves
 
     // Helper methods for legal move generation and game status checks
-    wchar_t get_piece_at_square(int square) const;                                       // Get the piece at a square
-    void make_move(Move &move); // Play move internally
+    wchar_t get_piece_at_square(int square) const; // Get the piece at a square
+    void make_move(Move &move, std::string str_move);   // Play move internally
 };
 
 #endif // BOARD_REPRESENTATION_H
