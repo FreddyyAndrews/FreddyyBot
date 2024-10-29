@@ -4,9 +4,6 @@
 #include <sstream>
 #include <vector>
 #include <locale.h>
-#include <chrono>  // For timing
-#include <fstream> // For writing to CSV
-#include <iomanip> // For precise floating-point time output
 
 // Constructors
 BoardRepresentation::BoardRepresentation()
@@ -182,9 +179,6 @@ std::vector<std::string> BoardRepresentation::list_next_legal_moves() const
 // Method to play move in internal memory
 void BoardRepresentation::make_move(Move &move, std::string str_move)
 {
-    // Start time measurement
-    auto start_time = std::chrono::high_resolution_clock::now();
-
     // References to indexes in the board representation array
     char &piece_on_start_square = board[move.start_square.rank][move.start_square.file];
     char &piece_on_target_square = board[move.to_square.rank][move.to_square.file];
@@ -336,15 +330,6 @@ void BoardRepresentation::make_move(Move &move, std::string str_move)
     {
         halfmove_clock++;
     }
-
-    // End time measurement
-    auto end_time = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> duration = end_time - start_time;
-
-    // Log the move and duration to a CSV file
-    std::ofstream log_file("move_timings.csv", std::ios_base::app); // Open file in append mode
-    log_file << str_move << "," << std::fixed << std::setprecision(9) << duration.count() << std::endl;
-    log_file.close();
 }
 
 // Method to play move from UCI command

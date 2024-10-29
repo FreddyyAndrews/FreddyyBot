@@ -1,7 +1,7 @@
 # Define compiler and flags
 CXX = g++
-# CXXFLAGS = -pedantic-errors -Wall -Weffc++ -Wextra -Wconversion -Wsign-conversion -Werror -std=c++23
-CXXFLAGS = -std=c++23
+CXXFLAGS = -pedantic-errors -Wall -Weffc++ -Wextra -Wconversion -Wsign-conversion -Werror -std=c++23
+# CXXFLAGS = -std=c++23
 
 # Include directories (use -isystem for GTest to suppress warnings from GTest)
 INCLUDE_DIRS = -Iinclude -isystem /usr/src/googletest/googletest/include
