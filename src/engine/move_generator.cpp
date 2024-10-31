@@ -1,14 +1,16 @@
 #include "move_generator.h"
 #include <iostream>
 
-
-MoveGenerator::MoveGenerator()
+int generate_pseudo_legal_moves(BoardRepresentation& board_representation, Move* move_list)
 {
-    std::cout << "Size of move: " << sizeof(Move);
-    move_heap = new Move[218];
+    board_representation.print_board();
+    std::cout << move_list;
+    return 0;
 }
 
-MoveGenerator::~MoveGenerator()
+int generate_legal_moves(BoardRepresentation& board_representation, Move* move_list)
 {
-    delete[] move_heap;
+    int n_moves = generate_pseudo_legal_moves(board_representation, move_list);
+    return n_moves;
 }
+

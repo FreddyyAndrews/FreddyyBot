@@ -1,19 +1,40 @@
-#include "manager/board_representation.h"
+#include "board_representation.h"
 #include <ncurses.h>
 #include <iostream>
 #include <sstream>
 #include <vector>
 #include <locale.h>
 
-// Constructors
+// Default Constructor
 BoardRepresentation::BoardRepresentation()
+    : white_can_castle_kingside(false),
+      white_can_castle_queenside(false),
+      black_can_castle_kingside(false),
+      black_can_castle_queenside(false),
+      white_to_move(false),
+      en_passant_square(-1, -1), // Assuming Square has a constructor that accepts two integers
+      halfmove_clock(0),
+      fullmove_number(0),
+      move_stack()
 {
-    input_fen_position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"); // Initialize using standard starting position
+    // Initialize using the standard starting position
+    input_fen_position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 }
 
+// Constructor with FEN string
 BoardRepresentation::BoardRepresentation(const std::string &fen)
+    : white_can_castle_kingside(false),
+      white_can_castle_queenside(false),
+      black_can_castle_kingside(false),
+      black_can_castle_queenside(false),
+      white_to_move(false),
+      en_passant_square(-1, -1),
+      halfmove_clock(0),
+      fullmove_number(0),
+      move_stack()
 {
-    input_fen_position(fen); // Initialize using FEN string
+    // Initialize using the provided FEN string
+    input_fen_position(fen);
 }
 
 // Function to convert FEN position to 2D board representation and other variables
@@ -46,7 +67,8 @@ void BoardRepresentation::input_fen_position(const std::string &fen)
     // Populate the 2D board array based on the ranks
     for (int rank_index = 0; rank_index < 8; ++rank_index)
     {
-        const std::string &current_rank = ranks[7 - rank_index]; // FEN ranks go from 8th rank to 1st rank
+        // Explicitly cast int to size_t
+        const std::string &current_rank = ranks[static_cast<size_t>(7 - rank_index)]; // FEN ranks go from 8th rank to 1st rank
         int file_index = 0;
 
         for (char square : current_rank)
@@ -169,19 +191,24 @@ std::string BoardRepresentation::output_fen_position() const
     return fen.str();
 }
 
-// Methods to handle moves
-std::vector<std::string> BoardRepresentation::list_next_legal_moves() const
-{
-    // Return a dummy list of legal moves
-    return {"e2e4", "d2d4", "g1f3"};
-}
-
 // Method to play move in internal memory
-void BoardRepresentation::make_move(Move &move, std::string str_move)
+void BoardRepresentation::make_move(const Move &move)
 {
     // References to indexes in the board representation array
     char &piece_on_start_square = board[move.start_square.rank][move.start_square.file];
     char &piece_on_target_square = board[move.to_square.rank][move.to_square.file];
+
+    // Track the board status before the move to allow for redo
+    move_stack.push(MoveState(
+        white_can_castle_kingside,
+        white_can_castle_queenside,
+        black_can_castle_kingside,
+        black_can_castle_queenside,
+        en_passant_square,
+        halfmove_clock,
+        fullmove_number,
+        piece_on_target_square, // If any piece is captured by this move
+        white_to_move));
 
     // Determine which piece is moving and its color
     char moving_piece = board[move.start_square.rank][move.start_square.file];
@@ -204,26 +231,23 @@ void BoardRepresentation::make_move(Move &move, std::string str_move)
     }
 
     // Handle castling rights for rook moves and captures
-    if ((move.start_square.rank == 0 && move.start_square.file == 7) ||
-        move.to_square.rank == 0 && move.to_square.file == 7)
+    if (((move.start_square.rank == 0) && (move.start_square.file == 7)) ||
+        ((move.to_square.rank == 0) && (move.to_square.file == 7)))
     {
         white_can_castle_kingside = false;
     }
-
-    else if ((move.start_square.rank == 0 && move.start_square.file == 0) ||
-             move.to_square.rank == 0 && move.to_square.file == 0)
+    if (((move.start_square.rank == 0) && (move.start_square.file == 0)) ||
+        ((move.to_square.rank == 0) && (move.to_square.file == 0)))
     {
         white_can_castle_queenside = false;
     }
-
-    else if ((move.start_square.rank == 7 && move.start_square.file == 7) ||
-             move.to_square.rank == 7 && move.to_square.file == 7)
+    if (((move.start_square.rank == 7) && (move.start_square.file == 7)) ||
+        ((move.to_square.rank == 7) && (move.to_square.file == 7)))
     {
         black_can_castle_kingside = false;
     }
-
-    else if ((move.start_square.rank == 7 && move.start_square.file == 0) ||
-             move.to_square.rank == 7 && move.to_square.file == 0)
+    if (((move.start_square.rank == 7) && (move.start_square.file == 0)) ||
+        ((move.to_square.rank == 7) && (move.to_square.file == 0)))
     {
         black_can_castle_queenside = false;
     }
@@ -332,8 +356,58 @@ void BoardRepresentation::make_move(Move &move, std::string str_move)
     }
 }
 
+// Revert a move in the internal board
+void BoardRepresentation::undo_move(const Move &move)
+{
+    // Retrieve the last saved state
+    MoveState previous_state = move_stack.top();
+    move_stack.pop();
+
+    // Restore castling rights, en passant, and halfmove clock
+    white_can_castle_kingside = previous_state.white_can_castle_kingside;
+    white_can_castle_queenside = previous_state.white_can_castle_queenside;
+    black_can_castle_kingside = previous_state.black_can_castle_kingside;
+    black_can_castle_queenside = previous_state.black_can_castle_queenside;
+    en_passant_square = previous_state.en_passant_square;
+    halfmove_clock = previous_state.halfmove_clock;
+    fullmove_number = previous_state.fullmove_number;
+    white_to_move = previous_state.white_to_move;
+
+    // Step 1: Revert the piece move from `to_square` back to `start_square`
+    board[move.start_square.rank][move.start_square.file] = board[move.to_square.rank][move.to_square.file];
+    board[move.to_square.rank][move.to_square.file] = previous_state.piece_on_target_square; // Restore captured piece or set empty
+
+    // Step 2: Handle special cases
+    if (move.is_enpassant)
+    {
+        // En passant: Place the captured pawn back on the appropriate square
+        int captured_pawn_rank = (board[move.start_square.rank][move.start_square.file] == 'P') ? move.to_square.rank - 1 : move.to_square.rank + 1;
+        board[captured_pawn_rank][move.to_square.file] = (board[move.start_square.rank][move.start_square.file] == 'P') ? 'p' : 'P';
+        board[move.to_square.rank][move.to_square.file] = 'e'; // Empty the en passant target square
+    }
+    else if (move.promotion_piece != 'x')
+    {
+        // Promotion: Replace the promoted piece back with a pawn
+        board[move.start_square.rank][move.start_square.file] = (white_to_move) ? 'P' : 'p';
+    }
+    else if (move.is_castle)
+    {
+        // Castling: Move the rook back to its original position
+        if (move.to_square.file == 6)
+        {                                                                                 // Kingside castling
+            board[move.start_square.rank][5] = 'e';                                       // Clear the rook's castling square
+            board[move.start_square.rank][7] = (move.start_square.rank == 0) ? 'R' : 'r'; // Restore rook on original square
+        }
+        else if (move.to_square.file == 2)
+        {                                                                                 // Queenside castling
+            board[move.start_square.rank][3] = 'e';                                       // Clear the rook's castling square
+            board[move.start_square.rank][0] = (move.start_square.rank == 0) ? 'R' : 'r'; // Restore rook on original square
+        }
+    }
+}
+
 // Method to play move from UCI command
-void BoardRepresentation::make_move(const std::string &move)
+const Move BoardRepresentation::make_move(const std::string &move)
 {
     print_board();
 
@@ -381,8 +455,9 @@ void BoardRepresentation::make_move(const std::string &move)
     // Create move structure
     Move struct_move = Move(from_rank_int, from_file_int, to_rank_int, to_file_int, is_en_passant, is_castle, promotion_piece);
 
-    make_move(struct_move, move);
+    make_move(struct_move);
     print_board();
+    return struct_move;
 }
 
 // Methods for specific game states

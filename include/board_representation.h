@@ -5,6 +5,8 @@
 #include <vector>
 #include "square.h"
 #include "move.h"
+#include <stack>
+#include "move_state.h"
 
 class BoardRepresentation
 {
@@ -18,8 +20,9 @@ public:
     std::string output_fen_position() const;         // Output the current position as a FEN string
 
     // Methods to handle moves
-    std::vector<std::string> list_next_legal_moves() const; // Generate all legal moves from the current position
-    void make_move(const std::string &move);                // Apply a move (in UCI notation)
+    const Move make_move(const std::string &move); // Apply a move (in UCI notation)
+    void make_move(const Move &move);              // Play move internally
+    void undo_move(const Move &move);              // Undo a move internally
 
     // Methods for specific game states
     bool is_checkmate() const;             // Check if the current player is in checkmate
@@ -50,7 +53,8 @@ private:
 
     // Helper methods for legal move generation and game status checks
     wchar_t get_piece_at_square(int square) const; // Get the piece at a square
-    void make_move(Move &move, std::string str_move);   // Play move internally
+
+    std::stack<MoveState> move_stack;
 };
 
 #endif // BOARD_REPRESENTATION_H

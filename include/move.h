@@ -2,6 +2,7 @@
 #define MOVE_H
 
 #include "square.h"
+#include <string>
 
 struct Move
 {
@@ -31,6 +32,7 @@ struct Move
         promotion_piece('x')
   {
   }
+  std::string to_UCI() const;
 };
 
 #endif // MOVE_H
