@@ -30,20 +30,21 @@ public:
     bool is_insufficient_material() const; // Check if the game is a draw due to insufficient material
     bool is_draw_by_repetition() const;    // Check if the game is a draw by repetition
     bool is_draw_by_fifty_moves() const;   // Check if the game is a draw by the fifty-move rule
+    bool move_captures_king(Move &) const; // Check if a move captures a king piece
 
     // Utility methods
     void reset();
     // Reset the board to the initial position
     void print_board() const; // Print the board for debugging purposes
 
-private:
     // 2D array for storing pieces for lookup
     char board[8][8];
+    bool white_to_move; // True if it's white's turn, false for black
 
+private:
     // Castling rights and turn information
     bool white_can_castle_kingside, white_can_castle_queenside;
     bool black_can_castle_kingside, black_can_castle_queenside;
-    bool white_to_move; // True if it's white's turn, false for black
 
     // En passant square
     Square en_passant_square; // -1 if no en passant is available
