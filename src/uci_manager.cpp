@@ -1,4 +1,4 @@
-#include "manager/uci_manager.h"
+#include "uci_manager.h"
 #include <iostream>
 #include <string>
 #include <cstdlib>

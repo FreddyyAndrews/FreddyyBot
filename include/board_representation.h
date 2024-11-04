@@ -39,19 +39,18 @@ public:
 
     // 2D array for storing pieces for lookup
     char board[8][8];
-    bool white_to_move; // True if it's white's turn, false for black
-
-private:
     // Castling rights and turn information
     bool white_can_castle_kingside, white_can_castle_queenside;
     bool black_can_castle_kingside, black_can_castle_queenside;
+    bool white_to_move;                   // True if it's white's turn, false for black
+    bool is_opponent_piece(char &) const; // Check if a piece is an opponent piece
 
     // En passant square
     Square en_passant_square; // -1 if no en passant is available
 
     int halfmove_clock;  // Fifty-move rule counter
     int fullmove_number; // Number of full moves
-
+private:
     // Helper methods for legal move generation and game status checks
     wchar_t get_piece_at_square(int square) const; // Get the piece at a square
 

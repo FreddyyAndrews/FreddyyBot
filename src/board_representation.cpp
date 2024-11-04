@@ -467,6 +467,11 @@ bool BoardRepresentation::move_captures_king(Move &move) const
     return ((piece_on_target_square == 'K') || (piece_on_target_square == 'k'));
 }
 
+bool BoardRepresentation::is_opponent_piece(char &piece) const
+{
+    return ((white_to_move && islower(piece)) || (!white_to_move && isupper(piece)));
+}
+
 // Methods for specific game states
 bool BoardRepresentation::is_checkmate() const
 {
