@@ -5,8 +5,10 @@
 #include "move.h"
 #include <vector>
 
+typedef unsigned long long u64;
+
 void generate_pseudo_legal_moves(BoardRepresentation &, std::vector<Move> &);
-int generate_legal_moves(BoardRepresentation &, std::vector<Move> &);
+u64 generate_legal_moves(BoardRepresentation &, std::vector<Move> &);
 void generate_pawn_move(BoardRepresentation &, std::vector<Move> &, Square);
 void generate_rook_move(BoardRepresentation &, std::vector<Move> &, Square);
 void generate_bishop_move(BoardRepresentation &, std::vector<Move> &, Square);

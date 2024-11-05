@@ -4,12 +4,12 @@
 
 void generate_pawn_move(BoardRepresentation &board_representation, std::vector<Move> &move_list, Square on_square)
 {
-    int direction = board_representation.white_to_move ? -1 : 1; // Up for white, down for black
+    int direction = board_representation.white_to_move ? 1 : -1; // Up for white, down for black
 
     int rank = on_square.rank;
     int file = on_square.file;
 
-    int promotion_rank = board_representation.white_to_move ? 0 : 7;
+    int promotion_rank = board_representation.white_to_move ? 7 : 0;
 
     // Forward move
     int next_rank = rank + direction;
@@ -21,7 +21,7 @@ void generate_pawn_move(BoardRepresentation &board_representation, std::vector<M
             char promotion_pieces[] = {'q', 'r', 'b', 'n'}; // Promote to queen, rook, bishop, or knight
             for (char promo_piece : promotion_pieces)
             {
-                move_list.push_back(Move(rank, file, next_rank, file, false, true, promo_piece));
+                move_list.push_back(Move(rank, file, next_rank, file, false, false, promo_piece));
             }
         }
         else
@@ -29,8 +29,8 @@ void generate_pawn_move(BoardRepresentation &board_representation, std::vector<M
             move_list.push_back(Move(rank, file, next_rank, file));
 
             // Double move from starting position
-            bool is_starting_rank = (board_representation.white_to_move && rank == 6) ||
-                                    (!board_representation.white_to_move && rank == 1);
+            bool is_starting_rank = (board_representation.white_to_move && rank == 1) ||
+                                    (!board_representation.white_to_move && rank == 6);
             int double_move_rank = rank + 2 * direction;
             if (is_starting_rank && board_representation.board[double_move_rank][file] == 'e' &&
                 board_representation.board[next_rank][file] == 'e') // Both squares must be empty
@@ -320,7 +320,7 @@ void generate_castle(BoardRepresentation &board_representation, std::vector<Move
     bool is_white = board_representation.white_to_move;
 
     // King's starting position
-    int king_rank = is_white ? 7 : 0;
+    int king_rank = is_white ? 0 : 7;
     int king_file = 4; // 'e' file
 
     // Castling rights and conditions
@@ -431,21 +431,81 @@ void generate_pseudo_legal_moves(BoardRepresentation &board_representation, std:
     generate_castle(board_representation, move_list);
 }
 
-int generate_legal_moves(BoardRepresentation &board_representation, std::vector<Move> &move_list)
+u64 generate_legal_moves(BoardRepresentation &board_representation, std::vector<Move> &move_list)
 {
     std::vector<Move> pseudo_legal_move_list;
     generate_pseudo_legal_moves(board_representation, pseudo_legal_move_list);
 
     for (Move move : pseudo_legal_move_list)
     {
+        // Assume move is legal until finding counter example
+        bool move_is_legal = true;
+
+        // additional condition for checking pawn attacks during castling
+        if (move.is_castle)
+        {
+            // check white kingside castle
+            if (board_representation.white_to_move && move.to_square.file == 6)
+            {
+                for (int i = 3; i <= 7; ++i)
+                {
+                    if (board_representation.board[1][i] == 'p')
+                    {
+                        move_is_legal = false;
+                        break;
+                    }
+                }
+            }
+            // check white queenside castle
+            else if (board_representation.white_to_move && move.to_square.file == 2)
+            {
+                for (int i = 1; i <= 5; ++i)
+                {
+                    if (board_representation.board[1][i] == 'p')
+                    {
+                        move_is_legal = false;
+                        break;
+                    }
+                }
+            }
+            // check black kingside castle
+            else if (!board_representation.white_to_move && move.to_square.file == 6)
+            {
+                for (int i = 3; i <= 7; ++i)
+                {
+                    if (board_representation.board[6][i] == 'P')
+                    {
+                        move_is_legal = false;
+                        break;
+                    }
+                }
+            }
+            // check black queenside castle
+            else if (!board_representation.white_to_move && move.to_square.file == 2)
+            {
+                for (int i = 1; i <= 5; ++i)
+                {
+                    if (board_representation.board[6][i] == 'P')
+                    {
+                        move_is_legal = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // if move is found to be illegal by previous conditions don't check opponent responses
+        if (!move_is_legal)
+        {
+            continue;
+        }
+
         // For each generated move make the move in internal memory and find all opponent responses
         std::vector<Move> opp_move_list;
+
         // Make move handles changing turns so the next generated move will be the opponent
         board_representation.make_move(move);
         generate_pseudo_legal_moves(board_representation, opp_move_list);
-
-        // Assume move is legal until finding counter example
-        bool move_is_legal = true;
 
         // iterate through possible opponent responses
         for (Move opp_move : opp_move_list)
@@ -458,6 +518,7 @@ int generate_legal_moves(BoardRepresentation &board_representation, std::vector<
             }
 
             // Additional condition for castling moves
+            // King cannot castle through check
             if (move.is_castle)
             {
                 // Determine the squares the king passes through during castling
@@ -495,7 +556,7 @@ int generate_legal_moves(BoardRepresentation &board_representation, std::vector<
                 }
             }
         }
-
+        // If checks passed add pseudo legal move to legal moves
         if (move_is_legal)
         {
             move_list.push_back(move);
@@ -504,5 +565,5 @@ int generate_legal_moves(BoardRepresentation &board_representation, std::vector<
         board_representation.undo_move(move);
     }
 
-    return static_cast<int>(move_list.size());
+    return static_cast<u64>(move_list.size());
 }

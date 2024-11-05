@@ -38,6 +38,13 @@ void test_move(BoardRepresentation &board, const std::string &input_fen,
     EXPECT_EQ(input_fen, board.output_fen_position());
 }
 
+TEST(BoardRepresentationTest, PromotionUndo)
+{
+    BoardRepresentation board;
+    test_move(board, "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q2/PPPBBPpP/R3K2R b Kkq - 1 2",
+              "g2g1q", "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q2/PPPBBP1P/R3K1qR w Kkq - 0 3");
+}
+
 TEST(BoardRepresentationTest, WhitePushesPawn)
 {
     BoardRepresentation board;

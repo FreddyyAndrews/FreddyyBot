@@ -409,8 +409,6 @@ void BoardRepresentation::undo_move(const Move &move)
 // Method to play move from UCI command
 const Move BoardRepresentation::make_move(const std::string &move)
 {
-    print_board();
-
     // Extract the from and to squares from the move string
     char from_file = move[0]; // File of the 'from' square (e.g., 'e')
     char from_rank = move[1]; // Rank of the 'from' square (e.g., '2')
@@ -441,7 +439,6 @@ const Move BoardRepresentation::make_move(const std::string &move)
         en_passant_square.rank == to_rank_int &&
         en_passant_square.file == to_file_int)
     {
-        std::cout << "En passant" << std::endl;
         is_en_passant = true;
     }
 
@@ -456,7 +453,6 @@ const Move BoardRepresentation::make_move(const std::string &move)
     Move struct_move = Move(from_rank_int, from_file_int, to_rank_int, to_file_int, is_en_passant, is_castle, promotion_piece);
 
     make_move(struct_move);
-    print_board();
     return struct_move;
 }
 

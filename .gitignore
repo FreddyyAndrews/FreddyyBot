@@ -4,3 +4,4 @@ logs/
 reports/
 build/
 *.csv
+*.txt
