@@ -98,8 +98,8 @@ void BoardRepresentation::input_fen_position(const std::string &fen)
     // Set en passant target square (if any)
     if (en_passant_target != "-")
     {
-        int file = en_passant_target[0] - 'a';
-        int rank = en_passant_target[1] - '1';
+        int8_t file = en_passant_target[0] - 'a';
+        int8_t rank = en_passant_target[1] - '1';
         en_passant_square = Square(rank, file); // define en passant square
     }
     else
@@ -212,7 +212,7 @@ void BoardRepresentation::make_move(const Move &move)
 
     // Determine which piece is moving and its color
     char moving_piece = board[move.start_square.rank][move.start_square.file];
-    bool is_white_piece = (moving_piece >= 'A' && moving_piece <= 'Z');
+    bool is_white = is_white_piece(moving_piece);
 
     // Calculate is_capture by checking if the to_square is occupied by an opponent's piece
     bool is_capture = (piece_on_target_square != 'e');
@@ -262,7 +262,7 @@ void BoardRepresentation::make_move(const Move &move)
     }
     else
     {
-        if (is_white_piece)
+        if (is_white)
         {
             piece_on_target_square = move.promotion_piece - 32;
         }
@@ -276,7 +276,7 @@ void BoardRepresentation::make_move(const Move &move)
     if (move.is_castle)
     {
         // White castles
-        if (is_white_piece)
+        if (is_white)
         {
             if (move.to_square.file == 6)
             {
@@ -309,7 +309,7 @@ void BoardRepresentation::make_move(const Move &move)
     // remove opponent pawn for en passant move
     else if (move.is_enpassant)
     {
-        if (is_white_piece)
+        if (is_white)
         {
             board[move.to_square.rank - 1][move.to_square.file] = 'e';
         }
@@ -424,11 +424,11 @@ const Move BoardRepresentation::make_move(const std::string &move)
     }
 
     // Convert UCI move to rank and file
-    int from_rank_int = from_rank - '1'; // Convert char rank to int (e.g., '2' -> 1)
-    int from_file_int = from_file - 'a'; // Convert char file to int (e.g., 'e' -> 4)
+    int8_t from_rank_int = from_rank - '1'; // Convert char rank to int (e.g., '2' -> 1)
+    int8_t from_file_int = from_file - 'a'; // Convert char file to int (e.g., 'e' -> 4)
 
-    int to_rank_int = to_rank - '1'; // Convert char rank to int (e.g., '4' -> 3)
-    int to_file_int = to_file - 'a'; // Convert char file to int (e.g., 'e' -> 4)
+    int8_t to_rank_int = to_rank - '1'; // Convert char rank to int (e.g., '4' -> 3)
+    int8_t to_file_int = to_file - 'a'; // Convert char file to int (e.g., 'e' -> 4)
 
     bool is_en_passant = false;
     bool is_castle = false;
@@ -465,7 +465,7 @@ bool BoardRepresentation::move_captures_king(Move &move) const
 
 bool BoardRepresentation::is_opponent_piece(char &piece) const
 {
-    return ((white_to_move && islower(piece)) || (!white_to_move && isupper(piece)));
+    return ((white_to_move && is_black_piece(piece)) || (!white_to_move && is_white_piece(piece)));
 }
 
 // Methods for specific game states
@@ -638,4 +638,57 @@ void BoardRepresentation::print_board() const
 
     // End ncurses mode
     endwin();
+}
+
+bool BoardRepresentation::is_only_between(const Square &square_a, const Square &square_b, const Square &between_square) const
+{
+    if (!between_square.is_between(square_a, square_b))
+    {
+        return false;
+    }
+
+    // Calculate the direction to step through the squares
+    int delta_rank = (square_b.rank > square_a.rank) - (square_b.rank < square_a.rank);
+    int delta_file = (square_b.file > square_a.file) - (square_b.file < square_a.file);
+
+    int current_rank = square_a.rank + delta_rank;
+    int current_file = square_a.file + delta_file;
+
+    int non_empty_squares = 0;
+    bool between_square_found = false;
+
+    while (current_rank != square_b.rank || current_file != square_b.file)
+    {
+        // Safety check for board boundaries
+        if (current_rank < 0 || current_rank > 7 || current_file < 0 || current_file > 7)
+        {
+            // Out of bounds, should not happen if squares are aligned correctly
+            break;
+        }
+
+        // Check if this square is non-empty
+        char piece = board[current_rank][current_file];
+        if (piece != 'e') // Non-empty
+        {
+            non_empty_squares++;
+            if (current_rank == between_square.rank && current_file == between_square.file)
+            {
+                between_square_found = true;
+            }
+        }
+
+        current_rank += delta_rank;
+        current_file += delta_file;
+    }
+
+    // After the loop, check if only the between_square is non-empty
+    char piece_at_between_square = board[between_square.rank][between_square.file];
+    if (non_empty_squares == 1 && between_square_found && piece_at_between_square != 'e')
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }

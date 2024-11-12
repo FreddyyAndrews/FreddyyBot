@@ -163,3 +163,12 @@ TEST(BoardRepresentationTest, BlackCapturesWhiteRookKingside)
     test_move(board, "r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1",
               "h8h1", "r3k3/8/8/8/8/8/8/R3K2r w Qq - 0 2");
 }
+
+TEST(BoardRepresentationTest, IsOnlyBetween)
+{
+    BoardRepresentation board = BoardRepresentation("k2K4/1b6/2B5/8/8/8/8/8 b - - 0 1");
+    Square between_square = Square(6, 1);
+    Square king = Square(7, 0);
+    Square opp_bishop = Square(5, 2);
+    ASSERT_TRUE(board.is_only_between(king, opp_bishop, between_square));
+}

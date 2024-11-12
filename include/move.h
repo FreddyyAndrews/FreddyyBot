@@ -14,7 +14,7 @@ struct Move
   char promotion_piece;
 
   // Constructor to initialize the move
-  Move(int start_rank, int start_file, int to_rank, int to_file,
+  Move(int8_t start_rank, int8_t start_file, int8_t to_rank, int8_t to_file,
        bool enpassant = false, bool castle = false, char promotion = 'x')
       : start_square(start_rank, start_file), // Initialize start square
         to_square(to_rank, to_file),          // Initialize destination square

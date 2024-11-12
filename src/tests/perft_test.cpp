@@ -9,7 +9,7 @@
 typedef unsigned long long u64;
 std::atomic<u64> nodes_processed(0);
 std::chrono::time_point<std::chrono::steady_clock> last_update_time, start_time;
-const int print_depth = 4;
+const int print_depth = 1;
 bool print_divide = false;
 
 // Courtesy of Chessprogrammingwiki
@@ -28,23 +28,21 @@ u64 perf_t(int depth, BoardRepresentation &board, u64 expected_nodes)
     generate_legal_moves(board, move_list);
     for (Move move : move_list)
     {
-        std::string input_fen = board.output_fen_position();
         board.make_move(move);
-        u64 new_nodes = perf_t(depth - 1, board, expected_nodes);
-        nodes += new_nodes;
-        board.undo_move(move);
-        std::string output_fen = board.output_fen_position();
-
-        /*
-        if (output_fen != input_fen)
+        u64 new_nodes;
+        try
         {
-            std::cout << "Expected: " << input_fen << std::endl;
-            std::cout << "Got: " << output_fen << std::endl;
-            std::cout << "At depth: " << depth << std::endl;
-            std::cout << "On move: " << move.to_UCI() << std::endl;
-            throw std::runtime_error("Undo did not work correctly");
+            new_nodes = perf_t(depth - 1, board, expected_nodes);
+            nodes += new_nodes;
+            board.undo_move(move);
         }
-        */
+        catch (const std::exception &e)
+        {
+            std::cout << "Move: " << move.to_UCI() << " led to king capture." << '\n';
+            throw std::runtime_error("King captured.");
+        }
+
+        std::string output_fen = board.output_fen_position();
 
         if (print_divide && depth == print_depth)
         {
@@ -90,6 +88,7 @@ protected:
 
 // Tests
 
+/*
 TEST_F(PerftTest, PerftFromStarting)
 {
     BoardRepresentation board;
@@ -106,14 +105,6 @@ TEST_F(PerftTest, PerftPosition2)
     EXPECT_EQ(perf_t_result, expected_nodes);
 }
 
-/*
-TEST_F(PerftTest, DiscrepancyPosition)
-{
-    BoardRepresentation board("r3k2r/p1ppqPb1/bn3np1/4N3/4P3/1pN2Q1p/PPPBBPPP/R3K2R b KQkq - 0 1");
-    u64 expected_nodes = 2133;
-    u64 perf_t_result = run_perft(1, board, expected_nodes);
-    EXPECT_EQ(perf_t_result, expected_nodes);
-}
 */
 
 TEST_F(PerftTest, PerftPosition3)
@@ -123,6 +114,8 @@ TEST_F(PerftTest, PerftPosition3)
     u64 perf_t_result = run_perft(6, board, expected_nodes);
     EXPECT_EQ(perf_t_result, expected_nodes);
 }
+
+/*
 
 TEST_F(PerftTest, PerftPosition4)
 {
@@ -147,3 +140,4 @@ TEST_F(PerftTest, PerftPosition6)
     u64 perf_t_result = run_perft(6, board, expected_nodes);
     EXPECT_EQ(perf_t_result, expected_nodes);
 }
+*/

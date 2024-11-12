@@ -7,6 +7,7 @@
 #include "move.h"
 #include <stack>
 #include "move_state.h"
+#include "char_utils.h"
 
 class BoardRepresentation
 {
@@ -44,6 +45,7 @@ public:
     bool black_can_castle_kingside, black_can_castle_queenside;
     bool white_to_move;                   // True if it's white's turn, false for black
     bool is_opponent_piece(char &) const; // Check if a piece is an opponent piece
+    bool is_only_between(const Square &square_a, const Square &square_b, const Square &between_square) const;
 
     // En passant square
     Square en_passant_square; // -1 if no en passant is available

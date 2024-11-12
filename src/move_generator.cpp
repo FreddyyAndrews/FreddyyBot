@@ -1,18 +1,35 @@
 #include "move_generator.h"
-#include <iostream>
-#include <cctype>
 
-void generate_pawn_move(BoardRepresentation &board_representation, std::vector<Move> &move_list, Square on_square)
+void generate_pawn_move(
+    BoardRepresentation &board_representation,
+    std::vector<Move> &move_list,
+    const Square &on_square,
+    std::vector<SquareToSquareMap> &attacked_squares)
 {
-    int direction = board_representation.white_to_move ? 1 : -1; // Up for white, down for black
+    int8_t rank = on_square.rank;
+    int8_t file = on_square.file;
 
-    int rank = on_square.rank;
-    int file = on_square.file;
+    int8_t direction = board_representation.white_to_move ? 1 : -1; // Up for white, down for black
 
-    int promotion_rank = board_representation.white_to_move ? 7 : 0;
+    // if opponents piece determine attacked squares
+    if (board_representation.is_opponent_piece(board_representation.board[rank][file]))
+    {
+        if (file + 1 <= 7)
+        {
+            attacked_squares.push_back(SquareToSquareMap(Square(rank - direction, file + 1), Square(rank, file)));
+        }
+        if (file - 1 >= 0)
+        {
+            attacked_squares.push_back(SquareToSquareMap(Square(rank - direction, file - 1), Square(rank, file)));
+        }
+
+        return; // don't generate any real moves if not turn
+    }
+
+    int8_t promotion_rank = board_representation.white_to_move ? 7 : 0;
 
     // Forward move
-    int next_rank = rank + direction;
+    int8_t next_rank = rank + direction;
     if (next_rank >= 0 && next_rank <= 7 && board_representation.board[next_rank][file] == 'e') // if square in front is empty
     {
         if (next_rank == promotion_rank)
@@ -31,7 +48,7 @@ void generate_pawn_move(BoardRepresentation &board_representation, std::vector<M
             // Double move from starting position
             bool is_starting_rank = (board_representation.white_to_move && rank == 1) ||
                                     (!board_representation.white_to_move && rank == 6);
-            int double_move_rank = rank + 2 * direction;
+            int8_t double_move_rank = static_cast<int8_t>(rank + 2 * direction);
             if (is_starting_rank && board_representation.board[double_move_rank][file] == 'e' &&
                 board_representation.board[next_rank][file] == 'e') // Both squares must be empty
             {
@@ -41,12 +58,12 @@ void generate_pawn_move(BoardRepresentation &board_representation, std::vector<M
     }
 
     // Captures (including en passant)
-    for (int delta_file = -1; delta_file <= 1; delta_file += 2)
+    for (int8_t delta_file = -1; delta_file <= 1; delta_file += 2)
     {
-        int capture_file = file + delta_file;
+        int8_t capture_file = file + delta_file;
         if (capture_file >= 0 && capture_file < 8)
         {
-            int target_rank = rank + direction;
+            int8_t target_rank = rank + direction;
             char target_piece = board_representation.board[target_rank][capture_file];
 
             // Normal capture
@@ -79,27 +96,34 @@ void generate_pawn_move(BoardRepresentation &board_representation, std::vector<M
     }
 }
 
-void generate_rook_move(BoardRepresentation &board_representation, std::vector<Move> &move_list, Square on_square)
+void generate_rook_move(
+    BoardRepresentation &board_representation,
+    std::vector<Move> &move_list,
+    const Square &on_square,
+    std::vector<SquareToSquareMap> &attacked_squares)
+
 {
-    int rank = on_square.rank;
-    int file = on_square.file;
+    int8_t rank = on_square.rank;
+    int8_t file = on_square.file;
 
     // Rook movement directions: up, down, left, right
-    int directions[4][2] = {
+    constexpr int8_t directions[4][2] = {
         {-1, 0}, // Down
         {1, 0},  // Up
         {0, -1}, // Left
         {0, 1}   // Right
     };
 
-    // Iterate over each direction
-    for (int i = 0; i < 4; ++i)
-    {
-        int delta_rank = directions[i][0];
-        int delta_file = directions[i][1];
+    bool generating_attacked_squares = board_representation.is_opponent_piece(board_representation.board[rank][file]);
 
-        int current_rank = rank + delta_rank;
-        int current_file = file + delta_file;
+    // Iterate over each direction
+    for (int8_t i = 0; i < 4; ++i)
+    {
+        int8_t delta_rank = directions[i][0];
+        int8_t delta_file = directions[i][1];
+
+        int8_t current_rank = rank + delta_rank;
+        int8_t current_file = file + delta_file;
 
         // Move along the direction until the edge of the board or a blocking piece
         while (current_rank >= 0 && current_rank <= 7 && current_file >= 0 && current_file <= 7)
@@ -108,17 +132,35 @@ void generate_rook_move(BoardRepresentation &board_representation, std::vector<M
 
             if (target_piece == 'e')
             {
-                // Empty square, rook can move here
-                move_list.push_back(Move(rank, file, current_rank, current_file));
+                if (!generating_attacked_squares)
+                {
+                    // Empty square, rook can move here
+                    move_list.push_back(Move(rank, file, current_rank, current_file));
+                }
+                else
+                {
+                    attacked_squares.push_back(SquareToSquareMap(Square(current_rank, current_file), Square(rank, file)));
+                }
             }
             else if (board_representation.is_opponent_piece(target_piece))
             {
-                // Capture opponent piece
-                move_list.push_back(Move(rank, file, current_rank, current_file));
+                if (!generating_attacked_squares)
+                {
+                    // Empty square, rook can move here
+                    move_list.push_back(Move(rank, file, current_rank, current_file));
+                }
+                else
+                {
+                    attacked_squares.push_back(SquareToSquareMap(Square(current_rank, current_file), Square(rank, file)));
+                }
                 break; // Cannot move past capturing a piece
             }
             else
             {
+                if (generating_attacked_squares)
+                {
+                    attacked_squares.push_back(SquareToSquareMap(Square(current_rank, current_file), Square(rank, file)));
+                }
                 // Own piece blocks further movement
                 break;
             }
@@ -130,13 +172,19 @@ void generate_rook_move(BoardRepresentation &board_representation, std::vector<M
     }
 }
 
-void generate_bishop_move(BoardRepresentation &board_representation, std::vector<Move> &move_list, Square on_square)
+void generate_bishop_move(
+    BoardRepresentation &board_representation,
+    std::vector<Move> &move_list,
+    const Square &on_square,
+    std::vector<SquareToSquareMap> &attacked_squares)
 {
-    int rank = on_square.rank;
-    int file = on_square.file;
+    int8_t rank = on_square.rank;
+    int8_t file = on_square.file;
+
+    bool generating_attacked_squares = board_representation.is_opponent_piece(board_representation.board[rank][file]);
 
     // Bishop movement directions: four diagonals
-    int directions[4][2] = {
+    constexpr int8_t directions[4][2] = {
         {-1, -1}, // Up-left
         {-1, 1},  // Up-right
         {1, -1},  // Down-left
@@ -144,13 +192,13 @@ void generate_bishop_move(BoardRepresentation &board_representation, std::vector
     };
 
     // Iterate over each direction
-    for (int i = 0; i < 4; ++i)
+    for (int8_t i = 0; i < 4; ++i)
     {
-        int delta_rank = directions[i][0];
-        int delta_file = directions[i][1];
+        int8_t delta_rank = directions[i][0];
+        int8_t delta_file = directions[i][1];
 
-        int current_rank = rank + delta_rank;
-        int current_file = file + delta_file;
+        int8_t current_rank = rank + delta_rank;
+        int8_t current_file = file + delta_file;
 
         // Move along the direction until the edge of the board or a blocking piece
         while (current_rank >= 0 && current_rank <= 7 && current_file >= 0 && current_file <= 7)
@@ -159,17 +207,35 @@ void generate_bishop_move(BoardRepresentation &board_representation, std::vector
 
             if (target_piece == 'e')
             {
-                // Empty square, bishop can move here
-                move_list.push_back(Move(rank, file, current_rank, current_file));
+                if (!generating_attacked_squares)
+                {
+                    // Empty square, rook can move here
+                    move_list.push_back(Move(rank, file, current_rank, current_file));
+                }
+                else
+                {
+                    attacked_squares.push_back(SquareToSquareMap(Square(current_rank, current_file), Square(rank, file)));
+                }
             }
             else if (board_representation.is_opponent_piece(target_piece))
             {
-                // Capture opponent piece
-                move_list.push_back(Move(rank, file, current_rank, current_file));
+                if (!generating_attacked_squares)
+                {
+                    // Empty square, rook can move here
+                    move_list.push_back(Move(rank, file, current_rank, current_file));
+                }
+                else
+                {
+                    attacked_squares.push_back(SquareToSquareMap(Square(current_rank, current_file), Square(rank, file)));
+                }
                 break; // Cannot move past capturing a piece
             }
             else
             {
+                if (generating_attacked_squares)
+                {
+                    attacked_squares.push_back(SquareToSquareMap(Square(current_rank, current_file), Square(rank, file)));
+                }
                 // Own piece blocks further movement
                 break;
             }
@@ -181,13 +247,17 @@ void generate_bishop_move(BoardRepresentation &board_representation, std::vector
     }
 }
 
-void generate_knight_move(BoardRepresentation &board_representation, std::vector<Move> &move_list, Square on_square)
+void generate_knight_move(
+    BoardRepresentation &board_representation,
+    std::vector<Move> &move_list,
+    const Square &on_square,
+    std::vector<SquareToSquareMap> &attacked_squares)
 {
-    int rank = on_square.rank;
-    int file = on_square.file;
+    int8_t rank = on_square.rank;
+    int8_t file = on_square.file;
 
     // Possible knight moves relative to the current position
-    int knight_moves[8][2] = {
+    constexpr int8_t knight_moves[8][2] = {
         {-2, -1}, // 2 up, 1 left
         {-2, 1},  // 2 up, 1 right
         {-1, -2}, // 1 up, 2 left
@@ -199,18 +269,23 @@ void generate_knight_move(BoardRepresentation &board_representation, std::vector
     };
 
     // Iterate over all possible knight moves
-    for (int i = 0; i < 8; ++i)
+    for (int8_t i = 0; i < 8; ++i)
     {
-        int new_rank = rank + knight_moves[i][0];
-        int new_file = file + knight_moves[i][1];
+        int8_t new_rank = rank + knight_moves[i][0];
+        int8_t new_file = file + knight_moves[i][1];
 
         // Check if the new position is within the board boundaries
         if (new_rank >= 0 && new_rank <= 7 && new_file >= 0 && new_file <= 7)
         {
             char target_piece = board_representation.board[new_rank][new_file];
 
+            // generate attacked squares
+            if (board_representation.is_opponent_piece(board_representation.board[rank][file]))
+            {
+                attacked_squares.push_back(SquareToSquareMap(Square(new_rank, new_file), Square(rank, file)));
+            }
             // Check if the square is empty or contains an opponent's piece
-            if (target_piece == 'e' || board_representation.is_opponent_piece(target_piece))
+            else if (target_piece == 'e' || board_representation.is_opponent_piece(target_piece))
             {
                 // Add the move to the move list
                 move_list.push_back(Move(rank, file, new_rank, new_file));
@@ -220,13 +295,19 @@ void generate_knight_move(BoardRepresentation &board_representation, std::vector
     }
 }
 
-void generate_queen_move(BoardRepresentation &board_representation, std::vector<Move> &move_list, Square on_square)
+void generate_queen_move(
+    BoardRepresentation &board_representation,
+    std::vector<Move> &move_list,
+    const Square &on_square,
+    std::vector<SquareToSquareMap> &attacked_squares)
 {
-    int rank = on_square.rank;
-    int file = on_square.file;
+    int8_t rank = on_square.rank;
+    int8_t file = on_square.file;
+
+    bool generating_attacked_squares = board_representation.is_opponent_piece(board_representation.board[rank][file]);
 
     // Queen movement directions: combination of rook and bishop directions
-    int directions[8][2] = {
+    constexpr int8_t directions[8][2] = {
         {-1, 0},  // Up
         {1, 0},   // Down
         {0, -1},  // Left
@@ -238,13 +319,13 @@ void generate_queen_move(BoardRepresentation &board_representation, std::vector<
     };
 
     // Iterate over each direction
-    for (int i = 0; i < 8; ++i)
+    for (int8_t i = 0; i < 8; ++i)
     {
-        int delta_rank = directions[i][0];
-        int delta_file = directions[i][1];
+        int8_t delta_rank = directions[i][0];
+        int8_t delta_file = directions[i][1];
 
-        int current_rank = rank + delta_rank;
-        int current_file = file + delta_file;
+        int8_t current_rank = rank + delta_rank;
+        int8_t current_file = file + delta_file;
 
         // Move along the direction until the edge of the board or a blocking piece
         while (current_rank >= 0 && current_rank <= 7 && current_file >= 0 && current_file <= 7)
@@ -253,17 +334,35 @@ void generate_queen_move(BoardRepresentation &board_representation, std::vector<
 
             if (target_piece == 'e')
             {
-                // Empty square, queen can move here
-                move_list.push_back(Move(rank, file, current_rank, current_file));
+                if (!generating_attacked_squares)
+                {
+                    // Empty square, rook can move here
+                    move_list.push_back(Move(rank, file, current_rank, current_file));
+                }
+                else
+                {
+                    attacked_squares.push_back(SquareToSquareMap(Square(current_rank, current_file), Square(rank, file)));
+                }
             }
             else if (board_representation.is_opponent_piece(target_piece))
             {
-                // Capture opponent piece
-                move_list.push_back(Move(rank, file, current_rank, current_file));
+                if (!generating_attacked_squares)
+                {
+                    // Empty square, rook can move here
+                    move_list.push_back(Move(rank, file, current_rank, current_file));
+                }
+                else
+                {
+                    attacked_squares.push_back(SquareToSquareMap(Square(current_rank, current_file), Square(rank, file)));
+                }
                 break; // Cannot move past capturing a piece
             }
             else
             {
+                if (generating_attacked_squares)
+                {
+                    attacked_squares.push_back(SquareToSquareMap(Square(current_rank, current_file), Square(rank, file)));
+                }
                 // Own piece blocks further movement
                 break;
             }
@@ -275,13 +374,17 @@ void generate_queen_move(BoardRepresentation &board_representation, std::vector<
     }
 }
 
-void generate_king_move(BoardRepresentation &board_representation, std::vector<Move> &move_list, Square on_square)
+void generate_king_move(
+    BoardRepresentation &board_representation,
+    std::vector<Move> &move_list,
+    const Square &on_square,
+    std::vector<SquareToSquareMap> &attacked_squares)
 {
-    int rank = on_square.rank;
-    int file = on_square.file;
+    int8_t rank = on_square.rank;
+    int8_t file = on_square.file;
 
     // King movement directions: one square in any direction
-    int directions[8][2] = {
+    constexpr int8_t directions[8][2] = {
         {-1, 0},  // Up
         {1, 0},   // Down
         {0, -1},  // Left
@@ -293,18 +396,23 @@ void generate_king_move(BoardRepresentation &board_representation, std::vector<M
     };
 
     // Iterate over all possible directions
-    for (int i = 0; i < 8; ++i)
+    for (int8_t i = 0; i < 8; ++i)
     {
-        int new_rank = rank + directions[i][0];
-        int new_file = file + directions[i][1];
+        int8_t new_rank = rank + directions[i][0];
+        int8_t new_file = file + directions[i][1];
 
         // Check if the new position is within the board boundaries
         if (new_rank >= 0 && new_rank <= 7 && new_file >= 0 && new_file <= 7)
         {
             char target_piece = board_representation.board[new_rank][new_file];
 
+            // generate attacked squares
+            if (board_representation.is_opponent_piece(board_representation.board[rank][file]))
+            {
+                attacked_squares.push_back(SquareToSquareMap(Square(new_rank, new_file), Square(rank, file)));
+            }
             // Check if the square is empty or contains an opponent's piece
-            if (target_piece == 'e' || board_representation.is_opponent_piece(target_piece))
+            else if (target_piece == 'e' || board_representation.is_opponent_piece(target_piece))
             {
                 // Add the move to the move list
                 move_list.push_back(Move(rank, file, new_rank, new_file));
@@ -320,8 +428,8 @@ void generate_castle(BoardRepresentation &board_representation, std::vector<Move
     bool is_white = board_representation.white_to_move;
 
     // King's starting position
-    int king_rank = is_white ? 0 : 7;
-    int king_file = 4; // 'e' file
+    int8_t king_rank = is_white ? 0 : 7;
+    int8_t king_file = 4; // 'e' file
 
     // Castling rights and conditions
     if (is_white)
@@ -380,11 +488,15 @@ void generate_castle(BoardRepresentation &board_representation, std::vector<Move
     }
 }
 
-void generate_pseudo_legal_moves(BoardRepresentation &board_representation, std::vector<Move> &move_list)
+void generate_pseudo_legal_moves(
+    BoardRepresentation &board_representation,
+    std::vector<Move> &move_list,
+    std::vector<SquareToSquareMap> &attacked_squares,
+    Square &king_position)
 {
-    for (int i = 0; i < 8; ++i)
+    for (int8_t i = 0; i < 8; ++i)
     {
-        for (int j = 0; j < 8; ++j)
+        for (int8_t j = 0; j < 8; ++j)
         {
             char piece = board_representation.board[i][j];
 
@@ -392,37 +504,66 @@ void generate_pseudo_legal_moves(BoardRepresentation &board_representation, std:
             if (piece == 'e')
                 continue;
 
-            // Check if the piece belongs to the player whose turn it is
-            bool is_white_piece = isupper(piece);
-            if ((board_representation.white_to_move && !is_white_piece) ||
-                (!board_representation.white_to_move && is_white_piece))
-            {
-                continue;
-            }
-
             // Convert piece to lowercase for uniformity in switch
-            char piece_type = tolower(piece, std::locale());
+            char piece_type = to_lower(piece);
+
+            // Create a Square object for the current position
+            const Square current_square(i, j);
 
             // Call the appropriate move generator based on the piece type
             switch (piece_type)
             {
             case 'p': // Pawn
-                generate_pawn_move(board_representation, move_list, Square(i, j));
+                generate_pawn_move(
+                    board_representation,
+                    move_list,
+                    current_square,
+                    attacked_squares);
                 break;
+
             case 'n': // Knight
-                generate_knight_move(board_representation, move_list, Square(i, j));
+                generate_knight_move(
+                    board_representation,
+                    move_list,
+                    current_square,
+                    attacked_squares);
                 break;
+
             case 'b': // Bishop
-                generate_bishop_move(board_representation, move_list, Square(i, j));
+                generate_bishop_move(
+                    board_representation,
+                    move_list,
+                    current_square,
+                    attacked_squares);
                 break;
+
             case 'r': // Rook
-                generate_rook_move(board_representation, move_list, Square(i, j));
+                generate_rook_move(
+                    board_representation,
+                    move_list,
+                    current_square,
+                    attacked_squares);
                 break;
+
             case 'q': // Queen
-                generate_queen_move(board_representation, move_list, Square(i, j));
+                generate_queen_move(
+                    board_representation,
+                    move_list,
+                    current_square,
+                    attacked_squares);
                 break;
+
             case 'k': // King
-                generate_king_move(board_representation, move_list, Square(i, j));
+                if (!board_representation.is_opponent_piece(board_representation.board[i][j]))
+                {
+                    // store friendly king location
+                    king_position = Square(i, j);
+                }
+                generate_king_move(
+                    board_representation,
+                    move_list,
+                    current_square,
+                    attacked_squares);
                 break;
             }
         }
@@ -431,138 +572,218 @@ void generate_pseudo_legal_moves(BoardRepresentation &board_representation, std:
     generate_castle(board_representation, move_list);
 }
 
+// Function to count occurrences of a Square in the 'attacked' field
+bool is_square_attacked(const std::vector<SquareToSquareMap> &maps, const Square &target_square)
+{
+    return std::any_of(maps.begin(), maps.end(), [&](const SquareToSquareMap &map)
+                       { return map.attacked == target_square; });
+}
+
+int count_square_attacks(const std::vector<SquareToSquareMap> &maps, const Square &target_square)
+{
+    return static_cast<int8_t>(std::count_if(maps.begin(), maps.end(), [&](const SquareToSquareMap &map)
+                                             { return map.attacked == target_square; }));
+}
+
+Square get_attacker(const std::vector<SquareToSquareMap> &maps, const Square &attacked_square)
+{
+    for (SquareToSquareMap map : maps)
+    {
+        if (map.attacked == attacked_square)
+        {
+            return map.attacker;
+        }
+    }
+
+    throw std::runtime_error("Square not under attack.");
+}
+
+std::vector<Square> get_all_attackers(const std::vector<SquareToSquareMap> &maps, const Square &attacked_square)
+{
+    std::vector<Square> attackers;
+
+    for (SquareToSquareMap map : maps)
+    {
+        if (map.attacked == attacked_square)
+        {
+            attackers.push_back(map.attacker);
+        }
+    }
+
+    return attackers;
+}
+
 u64 generate_legal_moves(BoardRepresentation &board_representation, std::vector<Move> &move_list)
 {
+    // illegal cases
+    // 1. Castling through check
+    // 2. Leaving king in check.
+    // 3. Moving a pinned piece revealing the king
+    // 4. Moving king into check.
+
     std::vector<Move> pseudo_legal_move_list;
-    generate_pseudo_legal_moves(board_representation, pseudo_legal_move_list);
+    std::vector<SquareToSquareMap> attacked_squares;
+    Square king_position;
+
+    generate_pseudo_legal_moves(board_representation, pseudo_legal_move_list, attacked_squares, king_position);
+
+    // assert(king_position.exists());
+    // assert(attacked_squares.size() > 0);
 
     for (Move move : pseudo_legal_move_list)
     {
-        // Assume move is legal until finding counter example
-        bool move_is_legal = true;
-
-        // additional condition for checking pawn attacks during castling
+        // check attacked squares to make sure castle is legal
         if (move.is_castle)
         {
             // check white kingside castle
             if (board_representation.white_to_move && move.to_square.file == 6)
             {
-                for (int i = 3; i <= 7; ++i)
+                if (is_square_attacked(attacked_squares, Square(0, 4)) > 0 || // King's starting square
+                    is_square_attacked(attacked_squares, Square(0, 5)) > 0 || // Square the king moves through
+                    is_square_attacked(attacked_squares, Square(0, 6)) > 0)   // Square the king ends on
                 {
-                    if (board_representation.board[1][i] == 'p')
-                    {
-                        move_is_legal = false;
-                        break;
-                    }
+                    continue; // Castle is not legal
                 }
             }
             // check white queenside castle
             else if (board_representation.white_to_move && move.to_square.file == 2)
             {
-                for (int i = 1; i <= 5; ++i)
+                if (is_square_attacked(attacked_squares, Square(0, 4)) > 0 || // King's starting square
+                    is_square_attacked(attacked_squares, Square(0, 3)) > 0 || // Square the king moves through
+                    is_square_attacked(attacked_squares, Square(0, 2)) > 0)   // Square the king ends on
                 {
-                    if (board_representation.board[1][i] == 'p')
-                    {
-                        move_is_legal = false;
-                        break;
-                    }
+                    continue; // Castle is not legal
                 }
             }
             // check black kingside castle
             else if (!board_representation.white_to_move && move.to_square.file == 6)
             {
-                for (int i = 3; i <= 7; ++i)
+                if (is_square_attacked(attacked_squares, Square(7, 4)) > 0 || // King's starting square
+                    is_square_attacked(attacked_squares, Square(7, 5)) > 0 || // Square the king moves through
+                    is_square_attacked(attacked_squares, Square(7, 6)) > 0)   // Square the king ends on
                 {
-                    if (board_representation.board[6][i] == 'P')
-                    {
-                        move_is_legal = false;
-                        break;
-                    }
+                    continue; // Castle is not legal
                 }
             }
             // check black queenside castle
             else if (!board_representation.white_to_move && move.to_square.file == 2)
             {
-                for (int i = 1; i <= 5; ++i)
+                if (is_square_attacked(attacked_squares, Square(7, 4)) > 0 || // King's starting square
+                    is_square_attacked(attacked_squares, Square(7, 3)) > 0 || // Square the king moves through
+                    is_square_attacked(attacked_squares, Square(7, 2)) > 0)   // Square the king ends on
                 {
-                    if (board_representation.board[6][i] == 'P')
-                    {
-                        move_is_legal = false;
-                        break;
-                    }
+                    continue; // Castle is not legal
                 }
             }
         }
-
-        // if move is found to be illegal by previous conditions don't check opponent responses
-        if (!move_is_legal)
+        else // different checks for none castling moves
         {
-            continue;
-        }
-
-        // For each generated move make the move in internal memory and find all opponent responses
-        std::vector<Move> opp_move_list;
-
-        // Make move handles changing turns so the next generated move will be the opponent
-        board_representation.make_move(move);
-        generate_pseudo_legal_moves(board_representation, opp_move_list);
-
-        // iterate through possible opponent responses
-        for (Move opp_move : opp_move_list)
-        {
-            if (board_representation.move_captures_king(opp_move))
+            // check king move is not moving onto attacked square
+            if (move.start_square == king_position)
             {
-                // Move is not legal if it allows your own king to be captured
-                move_is_legal = false;
-                break;
-            }
-
-            // Additional condition for castling moves
-            // King cannot castle through check
-            if (move.is_castle)
-            {
-                // Determine the squares the king passes through during castling
-                std::vector<Square> squares_to_check;
-                int rank = move.start_square.rank;
-                int to_file = move.to_square.file;
-
-                if (to_file == 6) // Kingside castling
+                if (is_square_attacked(attacked_squares, move.to_square) > 0)
                 {
-                    // King landing square is already checked, check the squares in between
-                    squares_to_check.push_back(Square(rank, 4));
-                    squares_to_check.push_back(Square(rank, 5));
-                }
-                else if (to_file == 2) // Queenside castling
-                {
-                    // King landing square is already checked, check the squares in between
-                    squares_to_check.push_back(Square(rank, 4));
-                    squares_to_check.push_back(Square(rank, 3));
+                    // move is not legal, look at the next move
+                    continue;
                 }
 
-                // Check if any of the squares the king passes through are attacked by the opponent
-                for (Square sq : squares_to_check)
+                std::vector<Square> attacker_squares = get_all_attackers(attacked_squares, king_position);
+                bool king_moves_along_checked_line = false;
+
+                for (Square attacker_square : attacker_squares)
                 {
-                    if (opp_move.to_square == sq)
+                    char piece = to_lower(board_representation.board[attacker_square.rank][attacker_square.file]);
+
+                    if (piece == 'q' || piece == 'b' || piece == 'r')
                     {
-                        // Move is not legal if the king passes through or lands on a square under attack
-                        move_is_legal = false;
-                        break;
+                        if (move.start_square.is_between(attacker_square, move.to_square))
+                        {
+                            king_moves_along_checked_line = true;
+                            break;
+                        }
                     }
                 }
 
-                if (!move_is_legal)
+                if (king_moves_along_checked_line)
+                    continue;
+            }
+            // if king is in check and the move is not a king move (checked in above condition)
+            else if (is_square_attacked(attacked_squares, king_position) > 0)
+            {
+                // these moves must either block or capture the attacking piece or else they are illegal
+
+                // Double check requires a king move
+                if (count_square_attacks(attacked_squares, king_position) > 1)
                 {
-                    break;
+                    continue;
+                }
+
+                Square attacker_square = get_attacker(attacked_squares, king_position);
+                char attacker = to_lower(board_representation.board[attacker_square.rank][attacker_square.file]);
+
+                // if we are not capturing the checking piece we must block the checking piece
+                if (!(move.to_square == attacker_square))
+                {
+                    // this check only applies to sliding attacker pieces
+                    // Therefor if the attacker is not a queen, rook, or bishop the move is not valid
+                    if (attacker != 'q' && attacker != 'b' && attacker != 'r')
+                    {
+                        continue;
+                    }
+
+                    // check if piece is moving between king and attacker
+                    if (!move.to_square.is_between(attacker_square, king_position))
+                    {
+                        // If not check the next move
+                        continue;
+                    }
                 }
             }
+
+            // Handle pinned pieces
+            // check if piece is attacked
+            if (is_square_attacked(attacked_squares, move.start_square))
+            {
+                bool respects_pin = true;
+                // If attacked check the pieces that are attacking it
+                // iterate through attacker squares for the attacked piece
+                for (SquareToSquareMap map : attacked_squares)
+                {
+                    if (map.attacked == move.start_square)
+                    {
+                        // if being attacked by sliding pieces we need to check if this piece is the only piece between attacker and king
+                        // if the piece is the only piece between attacker and king the only legal moves are between the attacker and king
+                        // or capturing the attacker
+                        char piece = to_lower(board_representation.board[map.attacker.rank][map.attacker.file]);
+                        if (piece == 'q' || piece == 'r' || piece == 'b')
+                        {
+                            // check if moving piece is only occupied square between attacker and king
+                            if (board_representation.is_only_between(map.attacker, king_position, move.start_square))
+                            {
+                                if (!move.to_square.is_between(map.attacker, king_position) && !(move.to_square == map.attacker))
+                                {
+                                    respects_pin = false;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!respects_pin)
+                    continue;
+            }
         }
-        // If checks passed add pseudo legal move to legal moves
-        if (move_is_legal)
+
+        if (to_lower(board_representation.board[move.to_square.rank][move.to_square.file]) == 'k')
         {
-            move_list.push_back(move);
+            std::cout << "Move: " << move.to_UCI() << " captured the king.";
+            board_representation.print_board();
+            throw std::runtime_error("king was captured.");
         }
-        // Undo the generated move
-        board_representation.undo_move(move);
+
+        // if the move has not been rejected to this point it is valid
+        move_list.push_back(move);
     }
 
     return static_cast<u64>(move_list.size());
