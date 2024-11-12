@@ -722,7 +722,7 @@ u64 generate_legal_moves(BoardRepresentation &board_representation, std::vector<
                 char attacker = to_lower(board_representation.board[attacker_square.rank][attacker_square.file]);
 
                 // if we are not capturing the checking piece we must block the checking piece
-                if (!(move.to_square == attacker_square))
+                if (!(move.to_square == attacker_square) && !move.is_enpassant)
                 {
                     // this check only applies to sliding attacker pieces
                     // Therefor if the attacker is not a queen, rook, or bishop the move is not valid
@@ -735,6 +735,16 @@ u64 generate_legal_moves(BoardRepresentation &board_representation, std::vector<
                     if (!move.to_square.is_between(attacker_square, king_position))
                     {
                         // If not check the next move
+                        continue;
+                    }
+                }
+                else if (move.is_enpassant)
+                {
+                    // if we are in check and doing en passant we must be capturing the attacking square
+                    int rank_offset = board_representation.white_to_move ? 1 : -1;
+                    if (!(attacker_square.file == board_representation.en_passant_square.file &&
+                          attacker_square.rank + rank_offset == board_representation.en_passant_square.rank))
+                    {
                         continue;
                     }
                 }
@@ -772,6 +782,55 @@ u64 generate_legal_moves(BoardRepresentation &board_representation, std::vector<
 
                 if (!respects_pin)
                     continue;
+            }
+
+            // special pin handling for en passant
+            // special pin handling for en passant
+            if (move.is_enpassant)
+            {
+                bool en_passant_valid = true;
+                // check if en passant might open king rank
+                if (move.start_square.rank == king_position.rank)
+                {
+                    int direction = (king_position.file - move.start_square.file > 0) ? -1 : 1;
+                    int begin_iteration_file = (direction == 1) ? king_position.file + 1 : king_position.file - 1;
+
+                    // Generalized loop for both directions
+                    for (int i = begin_iteration_file; i >= 0 && i < 8; i += direction)
+                    {
+                        if (i == move.start_square.file || i == board_representation.en_passant_square.file)
+                        {
+                            continue;
+                        }
+
+                        if (board_representation.board[move.start_square.rank][i] == 'e')
+                        {
+                            continue;
+                        }
+
+                        // if we find a friendly piece, the en passant is valid
+                        if (!board_representation.is_opponent_piece(board_representation.board[move.start_square.rank][i]))
+                        {
+                            break;
+                        }
+
+                        char opponent_piece = to_lower(board_representation.board[move.start_square.rank][i]);
+                        if (opponent_piece == 'r' || opponent_piece == 'q')
+                        {
+                            en_passant_valid = false;
+                            break;
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                }
+
+                if (!en_passant_valid)
+                {
+                    continue;
+                }
             }
         }
 
