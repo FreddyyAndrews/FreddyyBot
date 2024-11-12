@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "manager/uci_manager.h"
+#include "uci_manager.h"
 
 // Test if the engine is available
 TEST(UCIManagerTest, EngineAvailable)

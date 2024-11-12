@@ -1,60 +1,78 @@
-# Define compiler and flags
+# Compiler and flags
 CXX = g++
-# CXXFLAGS = -pedantic-errors -Wall -Weffc++ -Wextra -Wconversion -Wsign-conversion -Werror -std=c++23
-CXXFLAGS = -std=c++23
+CXXFLAGS = -O3 -pedantic-errors -Wall -Weffc++ -Wextra -Wconversion -Wsign-conversion -Werror -std=c++23
 
-# Include directories (use -isystem for GTest to suppress warnings from GTest)
+# Include directories
 INCLUDE_DIRS = -Iinclude -isystem /usr/src/googletest/googletest/include
 
-# GTest library directories and libraries
+# Library directories
 LIB_DIRS = -L/usr/lib
-LIBS = -lgtest -lgtest_main -pthread -lncursesw -ltinfo
+
+# Libraries for the main program
+MAIN_LIBS = -pthread -lncursesw -ltinfo
+
+# Libraries for test executables (include gtest_main)
+TEST_LIBS = -lgtest_main -lgtest -pthread -lncursesw -ltinfo
 
 # Directories
-SRC_DIR = src/manager
-TEST_DIR = src/manager/tests
-BUILD_DIR = build/manager
+SRC_DIR := src
+TEST_DIR := $(SRC_DIR)/tests
+BUILD_DIR := build
+OBJ_DIR := $(BUILD_DIR)/obj
+BIN_DIR := $(BUILD_DIR)/bin
 
-# Source files
-SRC_FILES = $(wildcard $(SRC_DIR)/*.cpp)
-TEST_FILES = $(wildcard $(TEST_DIR)/*.cpp)
+# Source files and object files
+SOURCES := $(wildcard $(SRC_DIR)/*.cpp)
+OBJECTS := $(patsubst $(SRC_DIR)/%.cpp, $(OBJ_DIR)/%.o, $(SOURCES))
 
-# Output binaries
-MANAGER_BIN = $(BUILD_DIR)/manager
-TEST_BIN = $(BUILD_DIR)/tests
+# Test source files and object files
+TEST_SOURCES := $(wildcard $(TEST_DIR)/*.cpp)
+TEST_OBJECTS := $(patsubst $(TEST_DIR)/%.cpp, $(OBJ_DIR)/tests/%.o, $(TEST_SOURCES))
+TEST_EXECUTABLES := $(patsubst $(TEST_DIR)/%.cpp, $(BIN_DIR)/tests/%, $(TEST_SOURCES))
 
-# Create the build directory if it doesn't exist
-$(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
+# Common objects (excluding main.o)
+COMMON_OBJECTS := $(filter-out $(OBJ_DIR)/main.o, $(OBJECTS))
 
-# Build the manager executable
-manager: $(MANAGER_BIN)
+# Default target
+.PHONY: all
+all: $(BIN_DIR)/main
 
-$(MANAGER_BIN): $(SRC_FILES) | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(INCLUDE_DIRS) $(SRC_FILES) -o $(MANAGER_BIN)
+# Rule to build the main executable
+$(BIN_DIR)/main: $(OBJECTS) | $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDE_DIRS) $(OBJECTS) -o $@ $(LIB_DIRS) $(MAIN_LIBS)
 
-# Build the test executable
-manager_test: $(TEST_BIN)
+# Rule to compile source files into object files
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)
+	mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) $(INCLUDE_DIRS) -c $< -o $@
 
-$(TEST_BIN): $(TEST_FILES) $(filter-out src/manager/main.cpp, $(SRC_FILES)) | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(INCLUDE_DIRS) $(TEST_FILES) $(filter-out src/manager/main.cpp, $(SRC_FILES)) $(LIB_DIRS) $(LIBS) -o $(TEST_BIN)
+# Rule to compile test source files into object files
+$(OBJ_DIR)/tests/%.o: $(TEST_DIR)/%.cpp | $(OBJ_DIR)/tests
+	mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) $(INCLUDE_DIRS) -c $< -o $@
 
-# Run the manager
-.PHONY: manager_run
-manager_run: $(MANAGER_BIN)
-	./$(MANAGER_BIN)
+# Rule to build test executables
+$(BIN_DIR)/tests/%: $(OBJ_DIR)/tests/%.o $(COMMON_OBJECTS) | $(BIN_DIR)/tests
+	$(CXX) $(CXXFLAGS) $(INCLUDE_DIRS) $^ -o $@ $(LIB_DIRS) $(TEST_LIBS)
 
-# Run the tests
-.PHONY: manager_test
-manager_test_run: $(TEST_BIN)
-	./$(TEST_BIN)
+# Directory creation
+$(BIN_DIR) $(BIN_DIR)/tests $(OBJ_DIR) $(OBJ_DIR)/tests:
+	mkdir -p $@
 
-# Clean manager build artifacts
-.PHONY: manager_clean
-manager_clean:
+# Phony targets
+.PHONY: clean test run
+
+# Rule to clean the build directory
+clean:
 	rm -rf $(BUILD_DIR)
 
-# General clean
-.PHONY: clean
-clean:
-	rm -rf build
+# Rule to build and run all tests
+test: $(TEST_EXECUTABLES)
+	@for test_exec in $(TEST_EXECUTABLES); do \
+		echo "Running $$test_exec"; \
+		$$test_exec || exit 1; \
+	done
+
+# Rule to build and run the main program
+run: $(BIN_DIR)/main
+	$(BIN_DIR)/main

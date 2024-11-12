@@ -1,22 +1,40 @@
-#include "manager/board_representation.h"
+#include "board_representation.h"
 #include <ncurses.h>
 #include <iostream>
 #include <sstream>
 #include <vector>
 #include <locale.h>
-#include <chrono>  // For timing
-#include <fstream> // For writing to CSV
-#include <iomanip> // For precise floating-point time output
 
-// Constructors
+// Default Constructor
 BoardRepresentation::BoardRepresentation()
+    : white_can_castle_kingside(false),
+      white_can_castle_queenside(false),
+      black_can_castle_kingside(false),
+      black_can_castle_queenside(false),
+      white_to_move(false),
+      en_passant_square(-1, -1), // Assuming Square has a constructor that accepts two integers
+      halfmove_clock(0),
+      fullmove_number(0),
+      move_stack()
 {
-    input_fen_position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"); // Initialize using standard starting position
+    // Initialize using the standard starting position
+    input_fen_position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 }
 
+// Constructor with FEN string
 BoardRepresentation::BoardRepresentation(const std::string &fen)
+    : white_can_castle_kingside(false),
+      white_can_castle_queenside(false),
+      black_can_castle_kingside(false),
+      black_can_castle_queenside(false),
+      white_to_move(false),
+      en_passant_square(-1, -1),
+      halfmove_clock(0),
+      fullmove_number(0),
+      move_stack()
 {
-    input_fen_position(fen); // Initialize using FEN string
+    // Initialize using the provided FEN string
+    input_fen_position(fen);
 }
 
 // Function to convert FEN position to 2D board representation and other variables
@@ -49,7 +67,8 @@ void BoardRepresentation::input_fen_position(const std::string &fen)
     // Populate the 2D board array based on the ranks
     for (int rank_index = 0; rank_index < 8; ++rank_index)
     {
-        const std::string &current_rank = ranks[7 - rank_index]; // FEN ranks go from 8th rank to 1st rank
+        // Explicitly cast int to size_t
+        const std::string &current_rank = ranks[static_cast<size_t>(7 - rank_index)]; // FEN ranks go from 8th rank to 1st rank
         int file_index = 0;
 
         for (char square : current_rank)
@@ -79,8 +98,8 @@ void BoardRepresentation::input_fen_position(const std::string &fen)
     // Set en passant target square (if any)
     if (en_passant_target != "-")
     {
-        int file = en_passant_target[0] - 'a';
-        int rank = en_passant_target[1] - '1';
+        int8_t file = en_passant_target[0] - 'a';
+        int8_t rank = en_passant_target[1] - '1';
         en_passant_square = Square(rank, file); // define en passant square
     }
     else
@@ -172,26 +191,28 @@ std::string BoardRepresentation::output_fen_position() const
     return fen.str();
 }
 
-// Methods to handle moves
-std::vector<std::string> BoardRepresentation::list_next_legal_moves() const
-{
-    // Return a dummy list of legal moves
-    return {"e2e4", "d2d4", "g1f3"};
-}
-
 // Method to play move in internal memory
-void BoardRepresentation::make_move(Move &move, std::string str_move)
+void BoardRepresentation::make_move(const Move &move)
 {
-    // Start time measurement
-    auto start_time = std::chrono::high_resolution_clock::now();
-
     // References to indexes in the board representation array
     char &piece_on_start_square = board[move.start_square.rank][move.start_square.file];
     char &piece_on_target_square = board[move.to_square.rank][move.to_square.file];
 
+    // Track the board status before the move to allow for redo
+    move_stack.push(MoveState(
+        white_can_castle_kingside,
+        white_can_castle_queenside,
+        black_can_castle_kingside,
+        black_can_castle_queenside,
+        en_passant_square,
+        halfmove_clock,
+        fullmove_number,
+        piece_on_target_square, // If any piece is captured by this move
+        white_to_move));
+
     // Determine which piece is moving and its color
     char moving_piece = board[move.start_square.rank][move.start_square.file];
-    bool is_white_piece = (moving_piece >= 'A' && moving_piece <= 'Z');
+    bool is_white = is_white_piece(moving_piece);
 
     // Calculate is_capture by checking if the to_square is occupied by an opponent's piece
     bool is_capture = (piece_on_target_square != 'e');
@@ -210,26 +231,23 @@ void BoardRepresentation::make_move(Move &move, std::string str_move)
     }
 
     // Handle castling rights for rook moves and captures
-    if ((move.start_square.rank == 0 && move.start_square.file == 7) ||
-        move.to_square.rank == 0 && move.to_square.file == 7)
+    if (((move.start_square.rank == 0) && (move.start_square.file == 7)) ||
+        ((move.to_square.rank == 0) && (move.to_square.file == 7)))
     {
         white_can_castle_kingside = false;
     }
-
-    else if ((move.start_square.rank == 0 && move.start_square.file == 0) ||
-             move.to_square.rank == 0 && move.to_square.file == 0)
+    if (((move.start_square.rank == 0) && (move.start_square.file == 0)) ||
+        ((move.to_square.rank == 0) && (move.to_square.file == 0)))
     {
         white_can_castle_queenside = false;
     }
-
-    else if ((move.start_square.rank == 7 && move.start_square.file == 7) ||
-             move.to_square.rank == 7 && move.to_square.file == 7)
+    if (((move.start_square.rank == 7) && (move.start_square.file == 7)) ||
+        ((move.to_square.rank == 7) && (move.to_square.file == 7)))
     {
         black_can_castle_kingside = false;
     }
-
-    else if ((move.start_square.rank == 7 && move.start_square.file == 0) ||
-             move.to_square.rank == 7 && move.to_square.file == 0)
+    if (((move.start_square.rank == 7) && (move.start_square.file == 0)) ||
+        ((move.to_square.rank == 7) && (move.to_square.file == 0)))
     {
         black_can_castle_queenside = false;
     }
@@ -244,7 +262,7 @@ void BoardRepresentation::make_move(Move &move, std::string str_move)
     }
     else
     {
-        if (is_white_piece)
+        if (is_white)
         {
             piece_on_target_square = move.promotion_piece - 32;
         }
@@ -258,7 +276,7 @@ void BoardRepresentation::make_move(Move &move, std::string str_move)
     if (move.is_castle)
     {
         // White castles
-        if (is_white_piece)
+        if (is_white)
         {
             if (move.to_square.file == 6)
             {
@@ -291,7 +309,7 @@ void BoardRepresentation::make_move(Move &move, std::string str_move)
     // remove opponent pawn for en passant move
     else if (move.is_enpassant)
     {
-        if (is_white_piece)
+        if (is_white)
         {
             board[move.to_square.rank - 1][move.to_square.file] = 'e';
         }
@@ -336,22 +354,61 @@ void BoardRepresentation::make_move(Move &move, std::string str_move)
     {
         halfmove_clock++;
     }
+}
 
-    // End time measurement
-    auto end_time = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> duration = end_time - start_time;
+// Revert a move in the internal board
+void BoardRepresentation::undo_move(const Move &move)
+{
+    // Retrieve the last saved state
+    MoveState previous_state = move_stack.top();
+    move_stack.pop();
 
-    // Log the move and duration to a CSV file
-    std::ofstream log_file("move_timings.csv", std::ios_base::app); // Open file in append mode
-    log_file << str_move << "," << std::fixed << std::setprecision(9) << duration.count() << std::endl;
-    log_file.close();
+    // Restore castling rights, en passant, and halfmove clock
+    white_can_castle_kingside = previous_state.white_can_castle_kingside;
+    white_can_castle_queenside = previous_state.white_can_castle_queenside;
+    black_can_castle_kingside = previous_state.black_can_castle_kingside;
+    black_can_castle_queenside = previous_state.black_can_castle_queenside;
+    en_passant_square = previous_state.en_passant_square;
+    halfmove_clock = previous_state.halfmove_clock;
+    fullmove_number = previous_state.fullmove_number;
+    white_to_move = previous_state.white_to_move;
+
+    // Step 1: Revert the piece move from `to_square` back to `start_square`
+    board[move.start_square.rank][move.start_square.file] = board[move.to_square.rank][move.to_square.file];
+    board[move.to_square.rank][move.to_square.file] = previous_state.piece_on_target_square; // Restore captured piece or set empty
+
+    // Step 2: Handle special cases
+    if (move.is_enpassant)
+    {
+        // En passant: Place the captured pawn back on the appropriate square
+        int captured_pawn_rank = (board[move.start_square.rank][move.start_square.file] == 'P') ? move.to_square.rank - 1 : move.to_square.rank + 1;
+        board[captured_pawn_rank][move.to_square.file] = (board[move.start_square.rank][move.start_square.file] == 'P') ? 'p' : 'P';
+        board[move.to_square.rank][move.to_square.file] = 'e'; // Empty the en passant target square
+    }
+    else if (move.promotion_piece != 'x')
+    {
+        // Promotion: Replace the promoted piece back with a pawn
+        board[move.start_square.rank][move.start_square.file] = (white_to_move) ? 'P' : 'p';
+    }
+    else if (move.is_castle)
+    {
+        // Castling: Move the rook back to its original position
+        if (move.to_square.file == 6)
+        {                                                                                 // Kingside castling
+            board[move.start_square.rank][5] = 'e';                                       // Clear the rook's castling square
+            board[move.start_square.rank][7] = (move.start_square.rank == 0) ? 'R' : 'r'; // Restore rook on original square
+        }
+        else if (move.to_square.file == 2)
+        {                                                                                 // Queenside castling
+            board[move.start_square.rank][3] = 'e';                                       // Clear the rook's castling square
+            board[move.start_square.rank][0] = (move.start_square.rank == 0) ? 'R' : 'r'; // Restore rook on original square
+        }
+    }
 }
 
 // Method to play move from UCI command
-void BoardRepresentation::make_move(const std::string &move)
+const Move BoardRepresentation::make_move(const std::string &move)
 {
-    print_board();
-
     // Extract the from and to squares from the move string
     char from_file = move[0]; // File of the 'from' square (e.g., 'e')
     char from_rank = move[1]; // Rank of the 'from' square (e.g., '2')
@@ -367,11 +424,11 @@ void BoardRepresentation::make_move(const std::string &move)
     }
 
     // Convert UCI move to rank and file
-    int from_rank_int = from_rank - '1'; // Convert char rank to int (e.g., '2' -> 1)
-    int from_file_int = from_file - 'a'; // Convert char file to int (e.g., 'e' -> 4)
+    int8_t from_rank_int = from_rank - '1'; // Convert char rank to int (e.g., '2' -> 1)
+    int8_t from_file_int = from_file - 'a'; // Convert char file to int (e.g., 'e' -> 4)
 
-    int to_rank_int = to_rank - '1'; // Convert char rank to int (e.g., '4' -> 3)
-    int to_file_int = to_file - 'a'; // Convert char file to int (e.g., 'e' -> 4)
+    int8_t to_rank_int = to_rank - '1'; // Convert char rank to int (e.g., '4' -> 3)
+    int8_t to_file_int = to_file - 'a'; // Convert char file to int (e.g., 'e' -> 4)
 
     bool is_en_passant = false;
     bool is_castle = false;
@@ -382,7 +439,6 @@ void BoardRepresentation::make_move(const std::string &move)
         en_passant_square.rank == to_rank_int &&
         en_passant_square.file == to_file_int)
     {
-        std::cout << "En passant" << std::endl;
         is_en_passant = true;
     }
 
@@ -396,8 +452,20 @@ void BoardRepresentation::make_move(const std::string &move)
     // Create move structure
     Move struct_move = Move(from_rank_int, from_file_int, to_rank_int, to_file_int, is_en_passant, is_castle, promotion_piece);
 
-    make_move(struct_move, move);
-    print_board();
+    make_move(struct_move);
+    return struct_move;
+}
+
+bool BoardRepresentation::move_captures_king(Move &move) const
+{
+    const char &piece_on_target_square = board[move.to_square.rank][move.to_square.file];
+
+    return ((piece_on_target_square == 'K') || (piece_on_target_square == 'k'));
+}
+
+bool BoardRepresentation::is_opponent_piece(char &piece) const
+{
+    return ((white_to_move && is_black_piece(piece)) || (!white_to_move && is_white_piece(piece)));
 }
 
 // Methods for specific game states
@@ -570,4 +638,57 @@ void BoardRepresentation::print_board() const
 
     // End ncurses mode
     endwin();
+}
+
+bool BoardRepresentation::is_only_between(const Square &square_a, const Square &square_b, const Square &between_square) const
+{
+    if (!between_square.is_between(square_a, square_b))
+    {
+        return false;
+    }
+
+    // Calculate the direction to step through the squares
+    int delta_rank = (square_b.rank > square_a.rank) - (square_b.rank < square_a.rank);
+    int delta_file = (square_b.file > square_a.file) - (square_b.file < square_a.file);
+
+    int current_rank = square_a.rank + delta_rank;
+    int current_file = square_a.file + delta_file;
+
+    int non_empty_squares = 0;
+    bool between_square_found = false;
+
+    while (current_rank != square_b.rank || current_file != square_b.file)
+    {
+        // Safety check for board boundaries
+        if (current_rank < 0 || current_rank > 7 || current_file < 0 || current_file > 7)
+        {
+            // Out of bounds, should not happen if squares are aligned correctly
+            break;
+        }
+
+        // Check if this square is non-empty
+        char piece = board[current_rank][current_file];
+        if (piece != 'e') // Non-empty
+        {
+            non_empty_squares++;
+            if (current_rank == between_square.rank && current_file == between_square.file)
+            {
+                between_square_found = true;
+            }
+        }
+
+        current_rank += delta_rank;
+        current_file += delta_file;
+    }
+
+    // After the loop, check if only the between_square is non-empty
+    char piece_at_between_square = board[between_square.rank][between_square.file];
+    if (non_empty_squares == 1 && between_square_found && piece_at_between_square != 'e')
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }

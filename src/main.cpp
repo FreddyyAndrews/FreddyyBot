@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 #include <sys/wait.h>
-#include "manager/uci_manager.h"
+#include "uci_manager.h"
 
 int main()
 {
