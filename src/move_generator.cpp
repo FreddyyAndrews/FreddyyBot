@@ -502,6 +502,11 @@ void generate_pseudo_legal_moves(
         // Convert piece to lowercase for uniformity in switch
         char piece_type = to_lower(piece);
 
+        if (piece_type == 'e')
+        {
+            throw std::runtime_error("Empty square in non-empty squares.");
+        }
+
         // Call the appropriate move generator based on the piece type
         switch (piece_type)
         {

@@ -92,8 +92,6 @@ int get_piece_value(char piece)
     case 'q': // Queen
         return 9;
 
-    case 'e': // empty
-        throw std::runtime_error("Empty Square in non-empty squares.");
     default:
         return 0;
     }
