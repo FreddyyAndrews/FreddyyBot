@@ -38,12 +38,12 @@ void generate_pawn_move(
             char promotion_pieces[] = {'q', 'r', 'b', 'n'}; // Promote to queen, rook, bishop, or knight
             for (char promo_piece : promotion_pieces)
             {
-                move_list.push_back(Move(rank, file, next_rank, file, false, false, promo_piece));
+                move_list.push_back(Move(on_square, Square(next_rank, file), false, false, promo_piece));
             }
         }
         else
         {
-            move_list.push_back(Move(rank, file, next_rank, file));
+            move_list.push_back(Move(on_square, Square(next_rank, file)));
 
             // Double move from starting position
             bool is_starting_rank = (board_representation.white_to_move && rank == 1) ||
@@ -52,7 +52,7 @@ void generate_pawn_move(
             if (is_starting_rank && board_representation.board[double_move_rank][file] == 'e' &&
                 board_representation.board[next_rank][file] == 'e') // Both squares must be empty
             {
-                move_list.push_back(Move(rank, file, double_move_rank, file));
+                move_list.push_back(Move(on_square, Square(double_move_rank, file)));
             }
         }
     }
@@ -75,12 +75,12 @@ void generate_pawn_move(
                     char promotion_pieces[] = {'q', 'r', 'b', 'n'};
                     for (char promo_piece : promotion_pieces)
                     {
-                        move_list.push_back(Move(rank, file, target_rank, capture_file, false, false, promo_piece));
+                        move_list.push_back(Move(on_square, Square(target_rank, capture_file), false, false, promo_piece));
                     }
                 }
                 else
                 {
-                    move_list.push_back(Move(rank, file, target_rank, capture_file));
+                    move_list.push_back(Move(on_square, Square(target_rank, capture_file)));
                 }
             }
             // En passant capture
@@ -89,7 +89,7 @@ void generate_pawn_move(
                 Square &en_passant_square = board_representation.en_passant_square;
                 if (en_passant_square.rank == target_rank && en_passant_square.file == capture_file)
                 {
-                    move_list.push_back(Move(rank, file, target_rank, capture_file, true, false, 'x'));
+                    move_list.push_back(Move(on_square, Square(target_rank, capture_file), true, false, 'x'));
                 }
             }
         }
@@ -135,7 +135,7 @@ void generate_rook_move(
                 if (!generating_attacked_squares)
                 {
                     // Empty square, rook can move here
-                    move_list.push_back(Move(rank, file, current_rank, current_file));
+                    move_list.push_back(Move(on_square, Square(current_rank, current_file)));
                 }
                 else
                 {
@@ -147,7 +147,7 @@ void generate_rook_move(
                 if (!generating_attacked_squares)
                 {
                     // Empty square, rook can move here
-                    move_list.push_back(Move(rank, file, current_rank, current_file));
+                    move_list.push_back(Move(on_square, Square(current_rank, current_file)));
                 }
                 else
                 {
@@ -210,7 +210,7 @@ void generate_bishop_move(
                 if (!generating_attacked_squares)
                 {
                     // Empty square, rook can move here
-                    move_list.push_back(Move(rank, file, current_rank, current_file));
+                    move_list.push_back(Move(on_square, Square(current_rank, current_file)));
                 }
                 else
                 {
@@ -222,7 +222,7 @@ void generate_bishop_move(
                 if (!generating_attacked_squares)
                 {
                     // Empty square, rook can move here
-                    move_list.push_back(Move(rank, file, current_rank, current_file));
+                    move_list.push_back(Move(on_square, Square(current_rank, current_file)));
                 }
                 else
                 {
@@ -288,7 +288,7 @@ void generate_knight_move(
             else if (target_piece == 'e' || board_representation.is_opponent_piece(target_piece))
             {
                 // Add the move to the move list
-                move_list.push_back(Move(rank, file, new_rank, new_file));
+                move_list.push_back(Move(on_square, Square(new_rank, new_file)));
             }
             // If it's our own piece, the knight cannot move there
         }
@@ -337,7 +337,7 @@ void generate_queen_move(
                 if (!generating_attacked_squares)
                 {
                     // Empty square, rook can move here
-                    move_list.push_back(Move(rank, file, current_rank, current_file));
+                    move_list.push_back(Move(on_square, Square(current_rank, current_file)));
                 }
                 else
                 {
@@ -349,7 +349,7 @@ void generate_queen_move(
                 if (!generating_attacked_squares)
                 {
                     // Empty square, rook can move here
-                    move_list.push_back(Move(rank, file, current_rank, current_file));
+                    move_list.push_back(Move(on_square, Square(current_rank, current_file)));
                 }
                 else
                 {
@@ -415,7 +415,7 @@ void generate_king_move(
             else if (target_piece == 'e' || board_representation.is_opponent_piece(target_piece))
             {
                 // Add the move to the move list
-                move_list.push_back(Move(rank, file, new_rank, new_file));
+                move_list.push_back(Move(on_square, Square(new_rank, new_file)));
             }
             // If it's our own piece, the king cannot move there
         }
@@ -442,7 +442,7 @@ void generate_castle(BoardRepresentation &board_representation, std::vector<Move
                 board_representation.board[king_rank][6] == 'e')
             {
                 // Create the castling move (king moves from e1 to g1)
-                move_list.push_back(Move(king_rank, king_file, king_rank, 6, false, true));
+                move_list.push_back(Move(Square(king_rank, king_file), Square(king_rank, 6), false, true));
             }
         }
 
@@ -455,7 +455,7 @@ void generate_castle(BoardRepresentation &board_representation, std::vector<Move
                 board_representation.board[king_rank][1] == 'e')
             {
                 // Create the castling move (king moves from e1 to c1)
-                move_list.push_back(Move(king_rank, king_file, king_rank, 2, false, true));
+                move_list.push_back(Move(Square(king_rank, king_file), Square(king_rank, 2), false, true));
             }
         }
     }
@@ -469,7 +469,7 @@ void generate_castle(BoardRepresentation &board_representation, std::vector<Move
                 board_representation.board[king_rank][6] == 'e')
             {
                 // Create the castling move (king moves from e8 to g8)
-                move_list.push_back(Move(king_rank, king_file, king_rank, 6, false, true));
+                move_list.push_back(Move(Square(king_rank, king_file), Square(king_rank, 6), false, true));
             }
         }
 
@@ -482,7 +482,7 @@ void generate_castle(BoardRepresentation &board_representation, std::vector<Move
                 board_representation.board[king_rank][1] == 'e')
             {
                 // Create the castling move (king moves from e8 to c8)
-                move_list.push_back(Move(king_rank, king_file, king_rank, 2, false, true));
+                move_list.push_back(Move(Square(king_rank, king_file), Square(king_rank, 2), false, true));
             }
         }
     }
@@ -494,78 +494,69 @@ void generate_pseudo_legal_moves(
     std::vector<SquareToSquareMap> &attacked_squares,
     Square &king_position)
 {
-    for (int8_t i = 0; i < 8; ++i)
+    for (const Square &current_square : board_representation.non_empty_squares)
     {
-        for (int8_t j = 0; j < 8; ++j)
+
+        char piece = board_representation.board[current_square.rank][current_square.file];
+
+        // Convert piece to lowercase for uniformity in switch
+        char piece_type = to_lower(piece);
+
+        // Call the appropriate move generator based on the piece type
+        switch (piece_type)
         {
-            char piece = board_representation.board[i][j];
+        case 'p': // Pawn
+            generate_pawn_move(
+                board_representation,
+                move_list,
+                current_square,
+                attacked_squares);
+            break;
 
-            // Skip empty squares
-            if (piece == 'e')
-                continue;
+        case 'n': // Knight
+            generate_knight_move(
+                board_representation,
+                move_list,
+                current_square,
+                attacked_squares);
+            break;
 
-            // Convert piece to lowercase for uniformity in switch
-            char piece_type = to_lower(piece);
+        case 'b': // Bishop
+            generate_bishop_move(
+                board_representation,
+                move_list,
+                current_square,
+                attacked_squares);
+            break;
 
-            // Create a Square object for the current position
-            const Square current_square(i, j);
+        case 'r': // Rook
+            generate_rook_move(
+                board_representation,
+                move_list,
+                current_square,
+                attacked_squares);
+            break;
 
-            // Call the appropriate move generator based on the piece type
-            switch (piece_type)
+        case 'q': // Queen
+            generate_queen_move(
+                board_representation,
+                move_list,
+                current_square,
+                attacked_squares);
+            break;
+
+        case 'k': // King
+            if (!board_representation.is_opponent_piece(board_representation.board[current_square.rank][current_square.file]))
             {
-            case 'p': // Pawn
-                generate_pawn_move(
-                    board_representation,
-                    move_list,
-                    current_square,
-                    attacked_squares);
-                break;
-
-            case 'n': // Knight
-                generate_knight_move(
-                    board_representation,
-                    move_list,
-                    current_square,
-                    attacked_squares);
-                break;
-
-            case 'b': // Bishop
-                generate_bishop_move(
-                    board_representation,
-                    move_list,
-                    current_square,
-                    attacked_squares);
-                break;
-
-            case 'r': // Rook
-                generate_rook_move(
-                    board_representation,
-                    move_list,
-                    current_square,
-                    attacked_squares);
-                break;
-
-            case 'q': // Queen
-                generate_queen_move(
-                    board_representation,
-                    move_list,
-                    current_square,
-                    attacked_squares);
-                break;
-
-            case 'k': // King
-                if (!board_representation.is_opponent_piece(board_representation.board[i][j]))
-                {
-                    // store friendly king location
-                    king_position = Square(i, j);
-                }
-                generate_king_move(
-                    board_representation,
-                    move_list,
-                    current_square,
-                    attacked_squares);
-                break;
+                // store friendly king location
+                king_position = current_square;
             }
+            generate_king_move(
+                board_representation,
+                move_list,
+                current_square,
+                attacked_squares);
+            break;
         }
     }
 
@@ -834,7 +825,7 @@ u64 generate_legal_moves(BoardRepresentation &board_representation, std::vector<
             }
         }
 
-        if (to_lower(board_representation.board[move.to_square.rank][move.to_square.file]) == 'k')
+        if (board_representation.move_captures_king(move))
         {
             std::cout << "Move: " << move.to_UCI() << " captured the king.";
             board_representation.print_board();
@@ -843,6 +834,11 @@ u64 generate_legal_moves(BoardRepresentation &board_representation, std::vector<
 
         // if the move has not been rejected to this point it is valid
         move_list.push_back(move);
+    }
+
+    if (is_square_attacked(attacked_squares, king_position))
+    {
+        board_representation.is_in_check = true;
     }
 
     return static_cast<u64>(move_list.size());

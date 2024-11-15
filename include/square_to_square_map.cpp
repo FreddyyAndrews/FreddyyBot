@@ -1,5 +1,3 @@
-// square.h
-
 #ifndef SQUARETOSQUAREMAP_H
 #define SQUARETOSQUAREMAP_H
 

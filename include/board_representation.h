@@ -8,6 +8,9 @@
 #include <stack>
 #include "move_state.h"
 #include "char_utils.h"
+#include <unordered_set>
+
+typedef unsigned long long u64;
 
 class BoardRepresentation
 {
@@ -26,11 +29,6 @@ public:
     void undo_move(const Move &move);              // Undo a move internally
 
     // Methods for specific game states
-    bool is_checkmate() const;             // Check if the current player is in checkmate
-    bool is_stalemate() const;             // Check if the current player is in stalemate
-    bool is_insufficient_material() const; // Check if the game is a draw due to insufficient material
-    bool is_draw_by_repetition() const;    // Check if the game is a draw by repetition
-    bool is_draw_by_fifty_moves() const;   // Check if the game is a draw by the fifty-move rule
     bool move_captures_king(Move &) const; // Check if a move captures a king piece
 
     // Utility methods
@@ -52,9 +50,12 @@ public:
 
     int halfmove_clock;  // Fifty-move rule counter
     int fullmove_number; // Number of full moves
+    std::unordered_set<Square> non_empty_squares;
+    bool is_in_check;
 private:
     // Helper methods for legal move generation and game status checks
     wchar_t get_piece_at_square(int square) const; // Get the piece at a square
+    void set_non_empty_squares();
 
     std::stack<MoveState> move_stack;
 };

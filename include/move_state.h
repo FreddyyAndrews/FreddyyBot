@@ -1,3 +1,6 @@
+#ifndef MOVESTATE_H
+#define MOVESTATE_H
+
 #include "square.h"
 
 struct MoveState
@@ -18,3 +21,5 @@ struct MoveState
         en_passant_square(ep_square), halfmove_clock(halfmove), fullmove_number(fullmove),
         piece_on_target_square(captured), white_to_move(white_to_move) {}
 };
+
+#endif // MOVESTATE_H

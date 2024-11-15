@@ -19,6 +19,20 @@ struct Square
     // Default Constructor
     Square() : rank(-1), file(-1) {}
 
+    // Copy Constructor
+    Square(const Square &other) : rank(other.rank), file(other.file) {}
+
+    // Copy Assignment Operator
+    Square &operator=(const Square &other)
+    {
+        if (this != &other) // Self-assignment check
+        {
+            rank = other.rank;
+            file = other.file;
+        }
+        return *this;
+    }
+
     // Overload the equality operator
     bool operator==(const Square &other) const
     {
@@ -45,5 +59,18 @@ struct Square
 
     bool is_between(const Square &square_a, const Square &square_b) const;
 };
+
+namespace std
+{
+    template <>
+    struct hash<Square>
+    {
+        std::size_t operator()(const Square &s) const
+        {
+            // Combine the hash of rank and file using a common hash combining technique
+            return (std::hash<int8_t>()(s.rank) ^ (std::hash<int8_t>()(s.file) << 1));
+        }
+    };
+}
 
 #endif // SQUARE_H

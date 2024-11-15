@@ -15,6 +15,8 @@ BoardRepresentation::BoardRepresentation()
       en_passant_square(-1, -1), // Assuming Square has a constructor that accepts two integers
       halfmove_clock(0),
       fullmove_number(0),
+      non_empty_squares(),
+      is_in_check(false),
       move_stack()
 {
     // Initialize using the standard starting position
@@ -31,6 +33,8 @@ BoardRepresentation::BoardRepresentation(const std::string &fen)
       en_passant_square(-1, -1),
       halfmove_clock(0),
       fullmove_number(0),
+      non_empty_squares(),
+      is_in_check(false),
       move_stack()
 {
     // Initialize using the provided FEN string
@@ -110,6 +114,25 @@ void BoardRepresentation::input_fen_position(const std::string &fen)
     // Parse halfmove clock and fullmove number
     halfmove_clock = std::stoi(half_move_clock_str);
     fullmove_number = std::stoi(full_move_number_str);
+
+    set_non_empty_squares();
+}
+
+void BoardRepresentation::set_non_empty_squares()
+{
+    // start from empty
+    non_empty_squares.clear();
+
+    for (int8_t i = 0; i < 8; ++i)
+    {
+        for (int8_t j = 0; j < 8; ++j)
+        {
+            if (board[i][j] != 'e')
+            {
+                non_empty_squares.insert(Square(i, j));
+            }
+        }
+    }
 }
 
 std::string BoardRepresentation::output_fen_position() const
@@ -254,6 +277,7 @@ void BoardRepresentation::make_move(const Move &move)
 
     // All moves require clearing the starting square
     piece_on_start_square = 'e';
+    non_empty_squares.erase(move.start_square);
 
     // Set the value in the target square to that of the moving piece except for promotions
     if (move.promotion_piece == 'x')
@@ -272,6 +296,9 @@ void BoardRepresentation::make_move(const Move &move)
         }
     }
 
+    // add the move to square to non empty
+    non_empty_squares.insert(move.to_square);
+
     // Handle moving rook in castling case
     if (move.is_castle)
     {
@@ -282,11 +309,17 @@ void BoardRepresentation::make_move(const Move &move)
             {
                 board[0][5] = 'R';
                 board[0][7] = 'e';
+
+                non_empty_squares.insert(Square(0, 5));
+                non_empty_squares.erase(Square(0, 7));
             }
             else
             {
                 board[0][3] = 'R';
                 board[0][0] = 'e';
+
+                non_empty_squares.insert(Square(0, 3));
+                non_empty_squares.erase(Square(0, 0));
             }
             // castling rights are already revoked for king moves
         }
@@ -297,11 +330,17 @@ void BoardRepresentation::make_move(const Move &move)
             {
                 board[7][5] = 'r';
                 board[7][7] = 'e';
+
+                non_empty_squares.insert(Square(7, 5));
+                non_empty_squares.erase(Square(7, 7));
             }
             else
             {
                 board[7][3] = 'r';
                 board[7][0] = 'e';
+
+                non_empty_squares.insert(Square(7, 3));
+                non_empty_squares.erase(Square(7, 0));
             }
         }
     }
@@ -312,10 +351,12 @@ void BoardRepresentation::make_move(const Move &move)
         if (is_white)
         {
             board[move.to_square.rank - 1][move.to_square.file] = 'e';
+            non_empty_squares.erase(Square(move.to_square.rank - 1, move.to_square.file));
         }
         else
         {
             board[move.to_square.rank + 1][move.to_square.file] = 'e';
+            non_empty_squares.erase(Square(move.to_square.rank + 1, move.to_square.file));
         }
     }
 
@@ -377,6 +418,13 @@ void BoardRepresentation::undo_move(const Move &move)
     board[move.start_square.rank][move.start_square.file] = board[move.to_square.rank][move.to_square.file];
     board[move.to_square.rank][move.to_square.file] = previous_state.piece_on_target_square; // Restore captured piece or set empty
 
+    // undo non empty square tracking
+    non_empty_squares.insert(move.start_square); // The starting square now has a piece
+    if (previous_state.piece_on_target_square == 'e')
+    {
+        non_empty_squares.erase(move.to_square); // The target square becomes empty
+    }
+
     // Step 2: Handle special cases
     if (move.is_enpassant)
     {
@@ -384,6 +432,8 @@ void BoardRepresentation::undo_move(const Move &move)
         int captured_pawn_rank = (board[move.start_square.rank][move.start_square.file] == 'P') ? move.to_square.rank - 1 : move.to_square.rank + 1;
         board[captured_pawn_rank][move.to_square.file] = (board[move.start_square.rank][move.start_square.file] == 'P') ? 'p' : 'P';
         board[move.to_square.rank][move.to_square.file] = 'e'; // Empty the en passant target square
+
+        non_empty_squares.insert(Square(static_cast<int8_t>(captured_pawn_rank), move.to_square.file)); // Restore the captured pawn
     }
     else if (move.promotion_piece != 'x')
     {
@@ -397,11 +447,17 @@ void BoardRepresentation::undo_move(const Move &move)
         {                                                                                 // Kingside castling
             board[move.start_square.rank][5] = 'e';                                       // Clear the rook's castling square
             board[move.start_square.rank][7] = (move.start_square.rank == 0) ? 'R' : 'r'; // Restore rook on original square
+
+            non_empty_squares.erase(Square(move.start_square.rank, 5));  // The square where the rook moved is now empty
+            non_empty_squares.insert(Square(move.start_square.rank, 7)); // The rook's original position is restored
         }
         else if (move.to_square.file == 2)
         {                                                                                 // Queenside castling
             board[move.start_square.rank][3] = 'e';                                       // Clear the rook's castling square
             board[move.start_square.rank][0] = (move.start_square.rank == 0) ? 'R' : 'r'; // Restore rook on original square
+
+            non_empty_squares.erase(Square(move.start_square.rank, 3));  // The square where the rook moved is now empty
+            non_empty_squares.insert(Square(move.start_square.rank, 0)); // The rook's original position is restored
         }
     }
 }
@@ -450,7 +506,7 @@ const Move BoardRepresentation::make_move(const std::string &move)
     }
 
     // Create move structure
-    Move struct_move = Move(from_rank_int, from_file_int, to_rank_int, to_file_int, is_en_passant, is_castle, promotion_piece);
+    Move struct_move = Move(Square(from_rank_int, from_file_int), Square(to_rank_int, to_file_int), is_en_passant, is_castle, promotion_piece);
 
     make_move(struct_move);
     return struct_move;
@@ -466,37 +522,6 @@ bool BoardRepresentation::move_captures_king(Move &move) const
 bool BoardRepresentation::is_opponent_piece(char &piece) const
 {
     return ((white_to_move && is_black_piece(piece)) || (!white_to_move && is_white_piece(piece)));
-}
-
-// Methods for specific game states
-bool BoardRepresentation::is_checkmate() const
-{
-    // Dummy method (always return false)
-    return false;
-}
-
-bool BoardRepresentation::is_stalemate() const
-{
-    // Dummy method (always return false)
-    return false;
-}
-
-bool BoardRepresentation::is_insufficient_material() const
-{
-    // Dummy method (always return false)
-    return false;
-}
-
-bool BoardRepresentation::is_draw_by_repetition() const
-{
-    // Dummy method (always return false)
-    return false;
-}
-
-bool BoardRepresentation::is_draw_by_fifty_moves() const
-{
-    // Dummy method (always return false)
-    return false;
 }
 
 // Utility methods

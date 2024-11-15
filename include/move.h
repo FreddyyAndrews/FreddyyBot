@@ -13,11 +13,11 @@ struct Move
   bool is_castle;
   char promotion_piece;
 
-  // Constructor to initialize the move
-  Move(int8_t start_rank, int8_t start_file, int8_t to_rank, int8_t to_file,
-       bool enpassant = false, bool castle = false, char promotion = 'x')
-      : start_square(start_rank, start_file), // Initialize start square
-        to_square(to_rank, to_file),          // Initialize destination square
+  Move(Square new_start_square, Square new_to_square,
+       bool enpassant = false, bool castle = false,
+       char promotion = 'x')
+      : start_square(new_start_square),
+        to_square(new_to_square),
         is_enpassant(enpassant),
         is_castle(castle),
         promotion_piece(promotion)

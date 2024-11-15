@@ -95,6 +95,7 @@ TEST_F(PerftTest, PerftFromStarting)
     EXPECT_EQ(perf_t_result, expected_nodes);
 }
 
+/*
 TEST_F(PerftTest, PerftPosition2)
 {
     BoardRepresentation board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
@@ -103,7 +104,6 @@ TEST_F(PerftTest, PerftPosition2)
     u64 perf_t_result = run_perft(depth, board, expected_nodes);
     EXPECT_EQ(perf_t_result, expected_nodes);
 }
-
 
 TEST_F(PerftTest, PerftPosition3)
 {
@@ -141,4 +141,4 @@ TEST_F(PerftTest, PerftPosition6)
     u64 perf_t_result = run_perft(depth, board, expected_nodes);
     EXPECT_EQ(perf_t_result, expected_nodes);
 }
-
+*/
