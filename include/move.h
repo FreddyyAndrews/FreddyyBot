@@ -3,6 +3,7 @@
 
 #include "square.h"
 #include <string>
+#include <iostream>
 
 struct Move
 {

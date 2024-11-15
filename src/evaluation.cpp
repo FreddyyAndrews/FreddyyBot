@@ -3,13 +3,13 @@
 Evaluation find_best_move(BoardRepresentation &board_representation)
 {
     Evaluation position_evaluation = Evaluation();
-    search(position_evaluation, board_representation, max_depth, -INT_MAX, INT_MAX);
+    search(position_evaluation, board_representation, 0, -INT_MAX, INT_MAX);
     return position_evaluation;
 }
 
 int search(Evaluation &position_evaluation, BoardRepresentation &board_representation, int depth, int alpha, int beta)
 {
-    if (depth == 0)
+    if (depth == max_depth)
     {
         return evaluate(board_representation);
     }
@@ -23,7 +23,7 @@ int search(Evaluation &position_evaluation, BoardRepresentation &board_represent
         if (board_representation.is_in_check)
         {
             // closer mates are worth more
-            return -(INT_MAX - depth);
+            return -(MATE_SCORE - depth);
         }
         else
         {
@@ -36,21 +36,25 @@ int search(Evaluation &position_evaluation, BoardRepresentation &board_represent
     for (Move move : move_list)
     {
         board_representation.make_move(move);
-        int evaluation = -search(position_evaluation, board_representation, depth - 1, -alpha, -beta);
+        int evaluation = -search(position_evaluation, board_representation, depth + 1, -beta, -alpha);
         board_representation.undo_move(move);
 
         if (evaluation >= beta)
         {
+            std::cout << "eval greater than beta" << std::endl;
+            std::cout << "Evaluation: " << evaluation << " | Alpha: " << alpha << " | Beta: " << beta << " | Depth: " << depth << std::endl;
             return beta;
         }
 
         if (evaluation > alpha)
         {
+            std::cout << "eval greater than alpha" << std::endl;
             alpha = evaluation;
 
             // on top recursion, find best move
-            if (depth == max_depth)
+            if (depth == 0)
             {
+                std::cout << "stored best move" << std::endl;
                 position_evaluation.best_move = move;
                 position_evaluation.evaluation = alpha;
             }

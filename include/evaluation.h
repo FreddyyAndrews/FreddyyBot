@@ -8,6 +8,7 @@
 typedef unsigned long long u64;
 
 const int max_depth = 4;
+const int MATE_SCORE = 100000;
 
 struct Evaluation
 {

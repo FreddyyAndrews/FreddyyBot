@@ -7,5 +7,5 @@ TEST(EvaluationTest, TestMateIn1)
     Evaluation eval = find_best_move(board_representation);
 
     EXPECT_EQ("h4b4", eval.best_move.to_UCI());
-    EXPECT_EQ(INT_MAX - 1, eval.evaluation);
+    EXPECT_EQ(MATE_SCORE - 1, eval.evaluation);
 }
