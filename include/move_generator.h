@@ -27,7 +27,8 @@ void generate_pseudo_legal_moves(
 // Generates all legal moves from the current board state
 u64 generate_legal_moves(
     BoardRepresentation &board_representation,
-    std::vector<Move> &move_list);
+    std::vector<Move> &move_list,
+    bool only_captures = false);
 
 // Generates pawn moves from a given square
 void generate_pawn_move(

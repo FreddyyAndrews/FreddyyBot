@@ -609,7 +609,7 @@ std::vector<Square> get_all_attackers(const std::vector<SquareToSquareMap> &maps
     return attackers;
 }
 
-u64 generate_legal_moves(BoardRepresentation &board_representation, std::vector<Move> &move_list)
+u64 generate_legal_moves(BoardRepresentation &board_representation, std::vector<Move> &move_list, bool only_captures)
 {
     // illegal cases
     // 1. Castling through check
@@ -838,7 +838,18 @@ u64 generate_legal_moves(BoardRepresentation &board_representation, std::vector<
         }
 
         // if the move has not been rejected to this point it is valid
-        move_list.push_back(move);
+        // In only captures case check this condition
+        if (only_captures)
+        {
+            if (board_representation.board[move.to_square.rank][move.to_square.file] != 'e')
+            {
+                move_list.push_back(move);
+            }
+        }
+        else
+        {
+            move_list.push_back(move);
+        }
     }
 
     if (is_square_attacked(attacked_squares, king_position))

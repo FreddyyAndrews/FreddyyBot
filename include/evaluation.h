@@ -19,10 +19,11 @@ struct Evaluation
     Evaluation() : best_move(Move()), evaluation(0) {}
 };
 
-Evaluation find_best_move(BoardRepresentation &board_representation);
+Evaluation find_best_move(BoardRepresentation &board_representation, int wtime = 0, int btime = 0, int winc = 0, int binc = 0);
 int search(Evaluation &position_evaluation, BoardRepresentation &board_representation, int depth, int alpha, int beta);
+int search_captures(BoardRepresentation &board_representation, int alpha, int beta);
 void sort_for_pruning(std::vector<Move> &move_list, BoardRepresentation &board_representation);
 int get_piece_value(char piece);
 int evaluate(BoardRepresentation &board_representation);
 
-#endif // BOARD_REPRESENTATION_H
+#endif // EVALUATION_H

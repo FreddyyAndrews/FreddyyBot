@@ -1,6 +1,6 @@
 #include "evaluation.h"
 
-Evaluation find_best_move(BoardRepresentation &board_representation)
+Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, int btime, int winc, int binc)
 {
     Evaluation position_evaluation = Evaluation();
     search(position_evaluation, board_representation, 0, -INT_MAX, INT_MAX);
@@ -11,7 +11,7 @@ int search(Evaluation &position_evaluation, BoardRepresentation &board_represent
 {
     if (depth == max_depth)
     {
-        return evaluate(board_representation);
+        return search_captures(board_representation, alpha, beta);
     }
 
     std::vector<Move> move_list;
@@ -41,20 +41,16 @@ int search(Evaluation &position_evaluation, BoardRepresentation &board_represent
 
         if (evaluation >= beta)
         {
-            std::cout << "eval greater than beta" << std::endl;
-            std::cout << "Evaluation: " << evaluation << " | Alpha: " << alpha << " | Beta: " << beta << " | Depth: " << depth << std::endl;
             return beta;
         }
 
         if (evaluation > alpha)
         {
-            std::cout << "eval greater than alpha" << std::endl;
             alpha = evaluation;
 
             // on top recursion, find best move
             if (depth == 0)
             {
-                std::cout << "stored best move" << std::endl;
                 position_evaluation.best_move = move;
                 position_evaluation.evaluation = alpha;
             }
@@ -64,6 +60,36 @@ int search(Evaluation &position_evaluation, BoardRepresentation &board_represent
     return alpha;
 }
 
+int search_captures(BoardRepresentation &board_representation, int alpha, int beta)
+{
+    int evaluation = evaluate(board_representation);
+    if (evaluation >= beta)
+    {
+        return beta;
+    }
+
+    alpha = std::max(alpha, evaluation);
+    std::vector<Move> capture_moves;
+    generate_legal_moves(board_representation, capture_moves, true);
+    sort_for_pruning(capture_moves, board_representation);
+
+    for (Move move : capture_moves)
+    {
+        board_representation.make_move(move);
+        evaluation = -search_captures(board_representation, -beta, -alpha);
+        board_representation.undo_move(move);
+
+        if (evaluation >= beta)
+        {
+            return beta;
+        }
+        alpha = std::max(alpha, evaluation);
+    }
+
+    return alpha;
+}
+
+// do more with this
 void sort_for_pruning(std::vector<Move> &move_list, BoardRepresentation &board_representation)
 {
     std::sort(move_list.begin(), move_list.end(), [&board_representation](const Move &a, const Move &b)
