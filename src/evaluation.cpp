@@ -78,8 +78,8 @@ std::chrono::time_point<std::chrono::steady_clock> find_time_condition(double re
     int increment = is_white_to_move ? winc : binc;
 
     // Determine the number of moves left based on the remaining material ratio
-    // Assume full game length of 50 moves at the start and 20 moves near the end
-    int moves_left = static_cast<int>(50 * remaining_material_ratio + 20 * (1 - remaining_material_ratio));
+    // Assume full game length of 60 moves at the start and 30 moves near the end (conservative to avoid flagging)
+    int moves_left = static_cast<int>(60 * remaining_material_ratio + 30 * (1 - remaining_material_ratio));
 
     // Basic time allocation per move
     int time_per_move = remaining_time / moves_left;
@@ -87,15 +87,10 @@ std::chrono::time_point<std::chrono::steady_clock> find_time_condition(double re
     // Adjust time per move based on increment
     time_per_move += increment;
 
-    // Ensure we don't use all the remaining time
-    time_per_move = std::min(time_per_move, remaining_time - MOVE_TIME_SAFETY_BUFFER_MS);
-
-    // Set minimum and maximum thinking time
-    int min_time = 10;    // milliseconds
-    int max_time = 20000; // milliseconds
+    int max_time = 20000; // milliseconds (20 seconds)
 
     // Clamp the time_per_move within min and max limits
-    time_per_move = std::max(min_time, std::min(time_per_move, max_time));
+    time_per_move = std::min(time_per_move, max_time);
 
     // Calculate the cutoff time as a time point in the future
     auto start_time = std::chrono::steady_clock::now();
