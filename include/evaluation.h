@@ -22,16 +22,15 @@ struct Evaluation
 };
 
 Evaluation find_best_move(BoardRepresentation &board_representation, const int wtime = 30000, const int btime = 30000, const int winc = 0, const int binc = 0);
-int search(Evaluation &position_evaluation, BoardRepresentation &board_representation,
-           const int depth, int alpha, int beta, const int max_depth, const bool is_endgame_condition,
-           const std::chrono::time_point<std::chrono::steady_clock> &cutoff_time);
+int search(BoardRepresentation &board_representation, int depth, int alpha, int beta, bool is_endgame_condition);
 int search_captures(BoardRepresentation &board_representation, int alpha, int beta, bool endgame_condition);
-void sort_for_pruning(std::vector<Move> &move_list, BoardRepresentation &board_representation);
-void sort_for_pruning(std::vector<Move> &move_list, BoardRepresentation &board_representation, Move &previous_best_move);
+void sort_for_pruning(std::vector<Move> &move_list, const BoardRepresentation &board_representation);
+void swap_best_move_to_front(std::vector<Move> &move_list, const Move &best_move);
 int get_piece_value(char piece);
 int evaluate(BoardRepresentation &board_representation, bool endgame_condition);
 bool is_endgame(BoardRepresentation &board_representation);
 std::chrono::time_point<std::chrono::steady_clock> find_time_condition(bool is_endgame_condition, int wtime, int btime,
                                                                        int winc, int binc, bool is_white_to_move);
+int compute_move_score(const Move &move, const BoardRepresentation &board_representation);
 
 #endif // EVALUATION_H

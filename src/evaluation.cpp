@@ -1,9 +1,12 @@
 #include "evaluation.h"
 
+int nodes_explored = 0;
+
 Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, int btime, int winc, int binc)
 {
+    nodes_explored = 0;
     Evaluation position_evaluation = Evaluation();
-    int i = 1;
+    int depth = 1;
     auto start_time = std::chrono::steady_clock::now();
     bool is_endgame_condition = is_endgame(board_representation);
     std::chrono::time_point<std::chrono::steady_clock> cutoff_time = find_time_condition(
@@ -13,18 +16,61 @@ Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, 
     auto allocated_time = std::chrono::duration_cast<std::chrono::milliseconds>(cutoff_time - start_time).count();
     std::cout << "Allocated " << allocated_time << " milliseconds" << std::endl;
 
+    // Prepare move list
+    std::vector<Move> move_list;
+    generate_legal_moves(board_representation, move_list);
+
+    // Initial sorting of moves (e.g., ordering captures, etc.)
+    sort_for_pruning(move_list, board_representation);
+
+    // iterative deepening
     do
     {
-        search(position_evaluation, board_representation, 0, -INT_MAX, INT_MAX, i,
-               is_endgame_condition, cutoff_time);
+        nodes_explored = 0;
+        int alpha = -INT_MAX;
+        int beta = INT_MAX;
+        Move best_move;
 
-        // Calculate elapsed time since start_time
+        for (const Move &move : move_list)
+        {
+            board_representation.make_move(move);
+            int evaluation = -search(board_representation, depth - 1, -beta, -alpha, is_endgame_condition);
+            board_representation.undo_move(move);
+
+            if (evaluation > alpha)
+            {
+                alpha = evaluation;
+                best_move = move;
+            }
+
+            // handle mid search timeout
+            if (depth != 1 && std::chrono::steady_clock::now() > cutoff_time)
+            {
+                std::cout << "Timed out mid search " << depth << std::endl;
+                break;
+            }
+        }
+
+        position_evaluation.best_move = best_move;
+        position_evaluation.evaluation = alpha;
+
+        // Check elapsed time
         auto current_time = std::chrono::steady_clock::now();
-        auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(current_time - start_time).count();
-        std::cout << "Reached depth " << i << " in " << elapsed_time << " milliseconds" << std::endl;
+        if (current_time > cutoff_time)
+        {
+            std::cout << "Timed out at depth " << depth << std::endl;
+            break;
+        }
 
-        ++i;
-    } while (std::chrono::steady_clock::now() <= cutoff_time);
+        // Re-sort move list to put best_move first for better move ordering
+        swap_best_move_to_front(move_list, position_evaluation.best_move);
+
+        auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(current_time - start_time).count();
+        std::cout << "Searched depth " << depth << " in " << elapsed_time << " milliseconds" << std::endl;
+        std::cout << "best move is " << position_evaluation.best_move.to_UCI() << std::endl;
+        std::cout << "Total nodes explored " << nodes_explored << std::endl;
+        ++depth;
+    } while (true);
 
     return position_evaluation;
 }
@@ -49,7 +95,7 @@ std::chrono::time_point<std::chrono::steady_clock> find_time_condition(bool is_e
 
     // Set minimum and maximum thinking time
     int min_time = 10;    // milliseconds
-    int max_time = 15000; // milliseconds
+    int max_time = 30000; // milliseconds
 
     // Clamp the time_per_move within min and max limits
     time_per_move = std::max(min_time, std::min(time_per_move, max_time));
@@ -78,24 +124,22 @@ bool is_endgame(BoardRepresentation &board_representation)
     return material_count <= ENDGAME_MATERIAL_CONDITION;
 }
 
-int search(Evaluation &position_evaluation, BoardRepresentation &board_representation,
-           const int depth, int alpha, int beta, const int max_depth, const bool is_endgame_condition,
-           const std::chrono::time_point<std::chrono::steady_clock> &cutoff_time)
+int search(BoardRepresentation &board_representation, int depth, int alpha, int beta, bool is_endgame_condition)
 {
-    if (depth == max_depth)
+    if (depth == 0)
     {
+        ++nodes_explored; // not precise since it doesn't count capture nodes but gives an idea of move ordering quality
         return search_captures(board_representation, alpha, beta, is_endgame_condition);
     }
 
     std::vector<Move> move_list;
-    // populate move list
     generate_legal_moves(board_representation, move_list);
 
     if (move_list.empty())
     {
         if (board_representation.is_in_check)
         {
-            // closer mates are worth more
+            // Closer mates are worth more
             return -(MATE_SCORE - depth);
         }
         else
@@ -104,28 +148,12 @@ int search(Evaluation &position_evaluation, BoardRepresentation &board_represent
         }
     }
 
-    // if we are on the top recursive call and not on the first search in iterative deepening we need to sort
-    // the moves such that the best move from the previous iterative deepening is checked first
-    // this value is stored in position_evaluation.best_move
-    if (depth == 0 && max_depth != 1)
-    {
-        if (!position_evaluation.best_move.is_instantiated())
-        {
-            throw std::runtime_error("Best move from previous iteration not instantiated.");
-        }
-
-        sort_for_pruning(move_list, board_representation, position_evaluation.best_move);
-    }
-    else
-    {
-        sort_for_pruning(move_list, board_representation);
-    }
+    sort_for_pruning(move_list, board_representation);
 
     for (const Move &move : move_list)
     {
         board_representation.make_move(move);
-        int evaluation = -search(position_evaluation, board_representation, depth + 1, -beta,
-                                 -alpha, max_depth, is_endgame_condition, cutoff_time);
+        int evaluation = -search(board_representation, depth - 1, -beta, -alpha, is_endgame_condition);
         board_representation.undo_move(move);
 
         if (evaluation >= beta)
@@ -136,21 +164,6 @@ int search(Evaluation &position_evaluation, BoardRepresentation &board_represent
         if (evaluation > alpha)
         {
             alpha = evaluation;
-
-            // on top recursion, find best move
-            if (depth == 0)
-            {
-                position_evaluation.best_move = move;
-                position_evaluation.evaluation = alpha;
-            }
-        }
-
-        // if we are timed out stop evaluating
-        // this doesn't count on first iterative deepening call, we always need to complete that
-        if (std::chrono::steady_clock::now() > cutoff_time && depth == 0 && max_depth != 1)
-        {
-            std::cout << "Timed out at " << max_depth << std::endl;
-            return alpha;
         }
     }
 
@@ -186,27 +199,91 @@ int search_captures(BoardRepresentation &board_representation, int alpha, int be
     return alpha;
 }
 
-// do more with this
-void sort_for_pruning(std::vector<Move> &move_list, BoardRepresentation &board_representation)
+int compute_move_score(const Move &move, const BoardRepresentation &board_representation)
+{
+    int score = 0;
+
+    // Determine if move is a capture
+    char captured_piece = board_representation.board[move.to_square.rank][move.to_square.file];
+    bool is_capture = captured_piece != 'e';
+
+    // Get moving piece
+    char moving_piece = board_representation.board[move.start_square.rank][move.start_square.file];
+
+    // Get piece values
+    int captured_value = get_piece_value(captured_piece);
+    int moving_value = get_piece_value(moving_piece);
+
+    // Determine if move is a pawn promotion
+    bool is_promotion = move.promotion_piece != 'x';
+
+    if (is_capture)
+    {
+        int gain = captured_value - moving_value;
+
+        int mvv_lva_score = (captured_value * 10) - moving_value;
+
+        if (gain > 0)
+        {
+            // Winning capture
+            score = 5000 + mvv_lva_score;
+        }
+        else if (gain == 0)
+        {
+            // Equal capture
+            score = 3000 + mvv_lva_score;
+        }
+        else // gain < 0
+        {
+            // Losing capture
+            score = 2000 - mvv_lva_score;
+        }
+    }
+    else if (is_promotion)
+    {
+        // Pawn promotion
+        score = 4000;
+    }
+    else if (move.is_castle)
+    {
+        score = 1500;
+    }
+    else
+    {
+        // Everything else
+        score = 1000;
+    }
+
+    return score;
+}
+
+void sort_for_pruning(std::vector<Move> &move_list, const BoardRepresentation &board_representation)
 {
     std::sort(move_list.begin(), move_list.end(), [&board_representation](const Move &a, const Move &b)
               {
-        int value_a = std::max(get_piece_value(board_representation.board[a.to_square.rank][a.to_square.file]) -
-                      get_piece_value(board_representation.board[a.start_square.rank][a.start_square.file]), 0);
-        int value_b = std::max(get_piece_value(board_representation.board[b.to_square.rank][b.to_square.file]) -
-                      get_piece_value(board_representation.board[b.start_square.rank][b.start_square.file]), 0);
-        return value_a > value_b; });
+                  int score_a = compute_move_score(a, board_representation);
+                  int score_b = compute_move_score(b, board_representation);
+                  return score_a > score_b; // Sort in descending order
+              });
 }
 
-void sort_for_pruning(std::vector<Move> &move_list, BoardRepresentation &board_representation, Move &previous_best_move)
+void swap_best_move_to_front(std::vector<Move> &move_list, const Move &best_move)
 {
-    std::sort(move_list.begin(), move_list.end(), [&board_representation, &previous_best_move](const Move &a, const Move &b)
-              {
-        int value_a = (a == previous_best_move) ? INT_MAX : std::max(get_piece_value(board_representation.board[a.to_square.rank][a.to_square.file]) -
-                      get_piece_value(board_representation.board[a.start_square.rank][a.start_square.file]), 0);
-        int value_b = (b == previous_best_move) ? INT_MAX : std::max(get_piece_value(board_representation.board[b.to_square.rank][b.to_square.file]) -
-                      get_piece_value(board_representation.board[b.start_square.rank][b.start_square.file]), 0);
-        return value_a > value_b; });
+    if (!best_move.is_instantiated())
+    {
+        throw std::runtime_error("Best move not set.");
+    }
+    for (size_t i = 0; i < move_list.size(); ++i)
+    {
+        if (move_list[i] == best_move)
+        {
+            if (i != 0)
+            {
+                std::swap(move_list[0], move_list[i]);
+            }
+            break; // Exit the loop once the best move is found and moved
+        }
+    }
 }
 
 int get_piece_value(char piece)
