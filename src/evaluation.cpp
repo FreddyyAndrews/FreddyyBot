@@ -5,9 +5,9 @@ Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, 
     Evaluation position_evaluation = Evaluation();
     int depth = 1;
     auto start_time = std::chrono::steady_clock::now();
-    bool is_endgame_condition = is_endgame(board_representation);
+    double remaining_material_ratio = get_remaining_material(board_representation);
     std::chrono::time_point<std::chrono::steady_clock> cutoff_time = find_time_condition(
-        is_endgame_condition, wtime, btime, winc, binc, board_representation.white_to_move);
+        remaining_material_ratio, wtime, btime, winc, binc, board_representation.white_to_move);
 
     // Calculate allocated time in milliseconds
     auto allocated_time = std::chrono::duration_cast<std::chrono::milliseconds>(cutoff_time - start_time).count();
@@ -30,7 +30,7 @@ Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, 
         for (const Move &move : move_list)
         {
             board_representation.make_move(move);
-            int evaluation = -search(board_representation, depth - 1, -beta, -alpha, is_endgame_condition, depth);
+            int evaluation = -search(board_representation, depth - 1, -beta, -alpha, remaining_material_ratio, depth);
             board_representation.undo_move(move);
 
             if (evaluation > alpha)
@@ -71,14 +71,15 @@ Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, 
     return position_evaluation;
 }
 
-std::chrono::time_point<std::chrono::steady_clock> find_time_condition(bool is_endgame_condition, int wtime, int btime,
+std::chrono::time_point<std::chrono::steady_clock> find_time_condition(double remaining_material_ratio, int wtime, int btime,
                                                                        int winc, int binc, bool is_white_to_move)
 {
     int remaining_time = is_white_to_move ? wtime : btime;
     int increment = is_white_to_move ? winc : binc;
 
-    // Determine the number of moves left; assume average game length
-    int moves_left = is_endgame_condition ? 20 : 40;
+    // Determine the number of moves left based on the remaining material ratio
+    // Assume full game length of 50 moves at the start and 20 moves near the end
+    int moves_left = static_cast<int>(50 * remaining_material_ratio + 20 * (1 - remaining_material_ratio));
 
     // Basic time allocation per move
     int time_per_move = remaining_time / moves_left;
@@ -91,7 +92,7 @@ std::chrono::time_point<std::chrono::steady_clock> find_time_condition(bool is_e
 
     // Set minimum and maximum thinking time
     int min_time = 10;    // milliseconds
-    int max_time = 30000; // milliseconds
+    int max_time = 20000; // milliseconds
 
     // Clamp the time_per_move within min and max limits
     time_per_move = std::max(min_time, std::min(time_per_move, max_time));
@@ -101,7 +102,7 @@ std::chrono::time_point<std::chrono::steady_clock> find_time_condition(bool is_e
     return start_time + std::chrono::milliseconds(time_per_move);
 }
 
-bool is_endgame(BoardRepresentation &board_representation)
+double get_remaining_material(BoardRepresentation &board_representation)
 {
     int material_count = 0;
 
@@ -117,14 +118,16 @@ bool is_endgame(BoardRepresentation &board_representation)
         }
     }
 
-    return material_count <= ENDGAME_MATERIAL_CONDITION;
+    // Calculate the ratio of remaining material (starting total material is 7800)
+    double remaining_material_ratio = static_cast<double>(material_count) / 7800.0;
+    return remaining_material_ratio;
 }
 
-int search(BoardRepresentation &board_representation, int depth, int alpha, int beta, bool is_endgame_condition, int starting_depth)
+int search(BoardRepresentation &board_representation, int depth, int alpha, int beta, double remaining_material_ratio, int starting_depth)
 {
     if (depth == 0)
     {
-        return search_captures(board_representation, alpha, beta, is_endgame_condition);
+        return search_captures(board_representation, alpha, beta, remaining_material_ratio);
     }
 
     std::vector<Move> move_list;
@@ -148,7 +151,7 @@ int search(BoardRepresentation &board_representation, int depth, int alpha, int 
     for (const Move &move : move_list)
     {
         board_representation.make_move(move);
-        int evaluation = -search(board_representation, depth - 1, -beta, -alpha, is_endgame_condition, starting_depth);
+        int evaluation = -search(board_representation, depth - 1, -beta, -alpha, remaining_material_ratio, starting_depth);
         board_representation.undo_move(move);
 
         if (evaluation >= beta)
@@ -165,9 +168,9 @@ int search(BoardRepresentation &board_representation, int depth, int alpha, int 
     return alpha;
 }
 
-int search_captures(BoardRepresentation &board_representation, int alpha, int beta, bool endgame_condition)
+int search_captures(BoardRepresentation &board_representation, int alpha, int beta, double remaining_material_ratio)
 {
-    int evaluation = evaluate(board_representation, endgame_condition);
+    int evaluation = evaluate(board_representation, remaining_material_ratio);
     if (evaluation >= beta)
     {
         return beta;
@@ -181,7 +184,7 @@ int search_captures(BoardRepresentation &board_representation, int alpha, int be
     for (const Move &move : capture_moves)
     {
         board_representation.make_move(move);
-        evaluation = -search_captures(board_representation, -beta, -alpha, endgame_condition);
+        evaluation = -search_captures(board_representation, -beta, -alpha, remaining_material_ratio);
         board_representation.undo_move(move);
 
         if (evaluation >= beta)
@@ -307,7 +310,7 @@ int get_piece_value(char piece)
     }
 }
 
-int evaluate(BoardRepresentation &board_representation, bool endgame_condition)
+int evaluate(BoardRepresentation &board_representation, double remaining_material_ratio)
 {
     int eval = 0;
     for (const Square &square : board_representation.non_empty_squares)
@@ -355,13 +358,27 @@ int evaluate(BoardRepresentation &board_representation, bool endgame_condition)
             position_value = queen_piece_square_table[rank][file];
             break;
         case 'k': // King
-            if (endgame_condition)
+            if (remaining_material_ratio >= 0.8)
             {
+                // Use only the regular king table
+                position_value = king_piece_square_table[rank][file];
+            }
+            else if (remaining_material_ratio <= 0.2)
+            {
+                // Use only the endgame king table
                 position_value = king_endgame_piece_square_table[rank][file];
             }
             else
             {
-                position_value = king_piece_square_table[rank][file];
+                // Weighted calculation between regular and endgame tables
+                double weight_regular = (remaining_material_ratio - 0.2) / 0.6;
+                double weight_endgame = (0.8 - remaining_material_ratio) / 0.6;
+
+                int regular_value = king_piece_square_table[rank][file];
+                int endgame_value = king_endgame_piece_square_table[rank][file];
+
+                position_value = static_cast<int>(
+                    weight_regular * regular_value + weight_endgame * endgame_value + 0.5); // +0.5 for rounding
             }
             break;
         default:
