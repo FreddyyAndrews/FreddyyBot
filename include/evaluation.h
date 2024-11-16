@@ -5,6 +5,7 @@
 #include "board_representation.h"
 #include <climits>
 #include <chrono>
+#include "piece_square_tables.h"
 
 typedef unsigned long long u64;
 

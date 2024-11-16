@@ -1,10 +1,7 @@
 #include "evaluation.h"
 
-int nodes_explored = 0;
-
 Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, int btime, int winc, int binc)
 {
-    nodes_explored = 0;
     Evaluation position_evaluation = Evaluation();
     int depth = 1;
     auto start_time = std::chrono::steady_clock::now();
@@ -26,7 +23,6 @@ Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, 
     // iterative deepening
     do
     {
-        nodes_explored = 0;
         int alpha = -INT_MAX;
         int beta = INT_MAX;
         Move best_move;
@@ -67,8 +63,8 @@ Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, 
 
         auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(current_time - start_time).count();
         std::cout << "Searched depth " << depth << " in " << elapsed_time << " milliseconds" << std::endl;
-        std::cout << "best move is " << position_evaluation.best_move.to_UCI() << std::endl;
-        std::cout << "Total nodes explored " << nodes_explored << std::endl;
+        std::cout << "The best move is " << position_evaluation.best_move.to_UCI() << std::endl;
+        std::cout << "The evaluation is " << position_evaluation.evaluation << std::endl;
         ++depth;
     } while (true);
 
@@ -128,7 +124,6 @@ int search(BoardRepresentation &board_representation, int depth, int alpha, int 
 {
     if (depth == 0)
     {
-        ++nodes_explored; // not precise since it doesn't count capture nodes but gives an idea of move ordering quality
         return search_captures(board_representation, alpha, beta, is_endgame_condition);
     }
 
@@ -293,19 +288,19 @@ int get_piece_value(char piece)
     switch (piece_type)
     {
     case 'p': // Pawn
-        return 1;
+        return 100;
 
     case 'n': // Knight
-        return 3;
+        return 300;
 
     case 'b': // Bishop
-        return 3;
+        return 300;
 
     case 'r': // Rook
-        return 5;
+        return 500;
 
     case 'q': // Queen
-        return 9;
+        return 900;
 
     default:
         return 0;
@@ -318,8 +313,64 @@ int evaluate(BoardRepresentation &board_representation, bool endgame_condition)
     for (const Square &square : board_representation.non_empty_squares)
     {
         char piece = board_representation.board[square.rank][square.file];
-        int eval_modifier = board_representation.is_opponent_piece(piece) ? -1 : 1;
-        eval += get_piece_value(piece) * eval_modifier;
+        bool is_opponent_piece = board_representation.is_opponent_piece(piece);
+        int eval_modifier = is_opponent_piece ? -1 : 1;
+
+        // Get piece type in lowercase for uniformity
+        char piece_type = to_lower(piece);
+
+        // Add material value
+        int material_value = get_piece_value(piece_type);
+        eval += material_value * eval_modifier;
+
+        // Get positional value from the piece-square table
+        int position_value = 0;
+
+        // Flip rank for black pieces
+        int rank = square.rank;
+        int file = square.file;
+
+        // Adjust rank if the piece is black
+        if (is_black_piece(piece))
+        {
+            rank = 7 - rank;
+        }
+
+        // Select the correct piece-square table
+        switch (piece_type)
+        {
+        case 'p': // Pawn
+            position_value = pawn_piece_square_table[rank][file];
+            break;
+        case 'n': // Knight
+            position_value = knight_piece_square_table[rank][file];
+            break;
+        case 'b': // Bishop
+            position_value = bishop_piece_square_table[rank][file];
+            break;
+        case 'r': // Rook
+            position_value = rook_piece_square_table[rank][file];
+            break;
+        case 'q': // Queen
+            position_value = queen_piece_square_table[rank][file];
+            break;
+        case 'k': // King
+            if (endgame_condition)
+            {
+                position_value = king_endgame_piece_square_table[rank][file];
+            }
+            else
+            {
+                position_value = king_piece_square_table[rank][file];
+            }
+            break;
+        default:
+            position_value = 0;
+            break;
+        }
+
+        // Add positional value
+        eval += position_value * eval_modifier;
     }
 
     return eval;
