@@ -23,7 +23,7 @@ struct Evaluation
 };
 
 Evaluation find_best_move(BoardRepresentation &board_representation, const int wtime = 30000, const int btime = 30000, const int winc = 0, const int binc = 0);
-int search(BoardRepresentation &board_representation, int depth, int alpha, int beta, bool is_endgame_condition);
+int search(BoardRepresentation &board_representation, int depth, int alpha, int beta, bool is_endgame_condition, int starting_depth);
 int search_captures(BoardRepresentation &board_representation, int alpha, int beta, bool endgame_condition);
 void sort_for_pruning(std::vector<Move> &move_list, const BoardRepresentation &board_representation);
 void swap_best_move_to_front(std::vector<Move> &move_list, const Move &best_move);

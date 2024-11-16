@@ -11,7 +11,7 @@ Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, 
 
     // Calculate allocated time in milliseconds
     auto allocated_time = std::chrono::duration_cast<std::chrono::milliseconds>(cutoff_time - start_time).count();
-    std::cout << "Allocated " << allocated_time << " milliseconds" << std::endl;
+    // std::cout << "Allocated " << allocated_time << " milliseconds" << std::endl;
 
     // Prepare move list
     std::vector<Move> move_list;
@@ -30,7 +30,7 @@ Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, 
         for (const Move &move : move_list)
         {
             board_representation.make_move(move);
-            int evaluation = -search(board_representation, depth - 1, -beta, -alpha, is_endgame_condition);
+            int evaluation = -search(board_representation, depth - 1, -beta, -alpha, is_endgame_condition, depth);
             board_representation.undo_move(move);
 
             if (evaluation > alpha)
@@ -42,7 +42,7 @@ Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, 
             // handle mid search timeout
             if (depth != 1 && std::chrono::steady_clock::now() > cutoff_time)
             {
-                std::cout << "Timed out mid search " << depth << std::endl;
+                // std::cout << "Timed out mid search " << depth << std::endl;
                 break;
             }
         }
@@ -54,7 +54,7 @@ Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, 
         auto current_time = std::chrono::steady_clock::now();
         if (current_time > cutoff_time)
         {
-            std::cout << "Timed out at depth " << depth << std::endl;
+            // std::cout << "Timed out at depth " << depth << std::endl;
             break;
         }
 
@@ -62,9 +62,9 @@ Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, 
         swap_best_move_to_front(move_list, position_evaluation.best_move);
 
         auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(current_time - start_time).count();
-        std::cout << "Searched depth " << depth << " in " << elapsed_time << " milliseconds" << std::endl;
-        std::cout << "The best move is " << position_evaluation.best_move.to_UCI() << std::endl;
-        std::cout << "The evaluation is " << position_evaluation.evaluation << std::endl;
+        // std::cout << "Searched depth " << depth << " in " << elapsed_time << " milliseconds" << std::endl;
+        // std::cout << "The best move is " << position_evaluation.best_move.to_UCI() << std::endl;
+        // std::cout << "The evaluation is " << position_evaluation.evaluation << std::endl;
         ++depth;
     } while (true);
 
@@ -120,7 +120,7 @@ bool is_endgame(BoardRepresentation &board_representation)
     return material_count <= ENDGAME_MATERIAL_CONDITION;
 }
 
-int search(BoardRepresentation &board_representation, int depth, int alpha, int beta, bool is_endgame_condition)
+int search(BoardRepresentation &board_representation, int depth, int alpha, int beta, bool is_endgame_condition, int starting_depth)
 {
     if (depth == 0)
     {
@@ -135,7 +135,7 @@ int search(BoardRepresentation &board_representation, int depth, int alpha, int 
         if (board_representation.is_in_check)
         {
             // Closer mates are worth more
-            return -(MATE_SCORE - depth);
+            return -(MATE_SCORE - (starting_depth - depth));
         }
         else
         {
@@ -148,7 +148,7 @@ int search(BoardRepresentation &board_representation, int depth, int alpha, int 
     for (const Move &move : move_list)
     {
         board_representation.make_move(move);
-        int evaluation = -search(board_representation, depth - 1, -beta, -alpha, is_endgame_condition);
+        int evaluation = -search(board_representation, depth - 1, -beta, -alpha, is_endgame_condition, starting_depth);
         board_representation.undo_move(move);
 
         if (evaluation >= beta)
