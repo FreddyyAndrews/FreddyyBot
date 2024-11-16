@@ -77,9 +77,9 @@ std::chrono::time_point<std::chrono::steady_clock> find_time_condition(double re
     int remaining_time = is_white_to_move ? wtime : btime;
     int increment = is_white_to_move ? winc : binc;
 
-    if (remaining_time < EMERGENCY_MS)  // handle very low time
+    if (remaining_time < EMERGENCY_MS) // handle very low time
     {
-        int time_per_move = std::max(25, increment);
+        int time_per_move = std::max(10, increment - BUFFER_MS);
         auto start_time = std::chrono::steady_clock::now();
         return start_time + std::chrono::milliseconds(time_per_move);
     }
@@ -97,7 +97,7 @@ std::chrono::time_point<std::chrono::steady_clock> find_time_condition(double re
     int max_time = 20000; // milliseconds (20 seconds)
 
     // Clamp the time_per_move within min and max limits
-    time_per_move = std::min(time_per_move, max_time);
+    time_per_move = std::max(10, std::min(time_per_move, max_time) - BUFFER_MS);
 
     // Calculate the cutoff time as a time point in the future
     auto start_time = std::chrono::steady_clock::now();
@@ -335,8 +335,8 @@ int evaluate(BoardRepresentation &board_representation, double remaining_materia
         int rank = square.rank;
         int file = square.file;
 
-        // Adjust rank if the piece is black
-        if (is_black_piece(piece))
+        // Adjust rank if the piece is white
+        if (is_white_piece(piece))
         {
             rank = 7 - rank;
         }
