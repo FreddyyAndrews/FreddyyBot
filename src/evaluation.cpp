@@ -77,6 +77,13 @@ std::chrono::time_point<std::chrono::steady_clock> find_time_condition(double re
     int remaining_time = is_white_to_move ? wtime : btime;
     int increment = is_white_to_move ? winc : binc;
 
+    if (remaining_time < EMERGENCY_MS)  // handle very low time
+    {
+        int time_per_move = std::max(25, increment);
+        auto start_time = std::chrono::steady_clock::now();
+        return start_time + std::chrono::milliseconds(time_per_move);
+    }
+
     // Determine the number of moves left based on the remaining material ratio
     // Assume full game length of 60 moves at the start and 30 moves near the end (conservative to avoid flagging)
     int moves_left = static_cast<int>(60 * remaining_material_ratio + 30 * (1 - remaining_material_ratio));

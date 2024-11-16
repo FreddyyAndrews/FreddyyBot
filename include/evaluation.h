@@ -10,7 +10,7 @@
 typedef unsigned long long u64;
 
 const int MATE_SCORE = 100000;
-const int MOVE_TIME_SAFETY_BUFFER_MS = 200; // Safety buffer to prevent flagging (e.g., reserve some time)
+const int EMERGENCY_MS = 5000; // Safety buffer to prevent flagging (e.g., reserve some time)
 
 struct Evaluation
 {
