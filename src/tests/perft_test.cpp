@@ -23,7 +23,7 @@ u64 perf_t(int depth, BoardRepresentation &board, u64 expected_nodes)
         u64 generated_count = generate_legal_moves(board, move_list);
         if (print_divide && print_depth == 1)
         {
-            for (Move move : move_list)
+            for (const Move &move : move_list)
             {
                 // Convert move to UCI notation (e.g., "e2e4")
                 std::string move_str = move.to_UCI(); // Implement this method
@@ -38,7 +38,7 @@ u64 perf_t(int depth, BoardRepresentation &board, u64 expected_nodes)
     }
 
     generate_legal_moves(board, move_list);
-    for (Move move : move_list)
+    for (const Move &move : move_list)
     {
         board.make_move(move);
         u64 new_nodes;

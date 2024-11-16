@@ -512,7 +512,7 @@ const Move BoardRepresentation::make_move(const std::string &move)
     return struct_move;
 }
 
-bool BoardRepresentation::move_captures_king(Move &move) const
+bool BoardRepresentation::move_captures_king(const Move &move) const
 {
     const char &piece_on_target_square = board[move.to_square.rank][move.to_square.file];
 

@@ -34,6 +34,16 @@ struct Move
   {
   }
   std::string to_UCI() const;
+  bool is_instantiated() const
+  {
+    return to_square.exists() && start_square.exists();
+  }
+
+  // Overload the equality operator
+  bool operator==(const Move &other) const
+  {
+    return start_square == other.start_square && to_square == other.to_square && promotion_piece == other.promotion_piece;
+  }
 };
 
 #endif // MOVE_H

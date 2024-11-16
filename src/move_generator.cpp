@@ -583,7 +583,7 @@ int count_square_attacks(const std::vector<SquareToSquareMap> &maps, const Squar
 
 Square get_attacker(const std::vector<SquareToSquareMap> &maps, const Square &attacked_square)
 {
-    for (SquareToSquareMap map : maps)
+    for (const SquareToSquareMap &map : maps)
     {
         if (map.attacked == attacked_square)
         {
@@ -598,7 +598,7 @@ std::vector<Square> get_all_attackers(const std::vector<SquareToSquareMap> &maps
 {
     std::vector<Square> attackers;
 
-    for (SquareToSquareMap map : maps)
+    for (const SquareToSquareMap &map : maps)
     {
         if (map.attacked == attacked_square)
         {
@@ -626,7 +626,7 @@ u64 generate_legal_moves(BoardRepresentation &board_representation, std::vector<
     // assert(king_position.exists());
     // assert(attacked_squares.size() > 0);
 
-    for (Move move : pseudo_legal_move_list)
+    for (const Move &move : pseudo_legal_move_list)
     {
         // check attacked squares to make sure castle is legal
         if (move.is_castle)
@@ -686,7 +686,7 @@ u64 generate_legal_moves(BoardRepresentation &board_representation, std::vector<
                 std::vector<Square> attacker_squares = get_all_attackers(attacked_squares, king_position);
                 bool king_moves_along_checked_line = false;
 
-                for (Square attacker_square : attacker_squares)
+                for (const Square &attacker_square : attacker_squares)
                 {
                     char piece = to_lower(board_representation.board[attacker_square.rank][attacker_square.file]);
 
@@ -753,7 +753,7 @@ u64 generate_legal_moves(BoardRepresentation &board_representation, std::vector<
                 bool respects_pin = true;
                 // If attacked check the pieces that are attacking it
                 // iterate through attacker squares for the attacked piece
-                for (SquareToSquareMap map : attacked_squares)
+                for (const SquareToSquareMap &map : attacked_squares)
                 {
                     if (map.attacked == move.start_square)
                     {

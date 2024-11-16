@@ -29,7 +29,7 @@ public:
     void undo_move(const Move &move);              // Undo a move internally
 
     // Methods for specific game states
-    bool move_captures_king(Move &) const; // Check if a move captures a king piece
+    bool move_captures_king(const Move &) const; // Check if a move captures a king piece
 
     // Utility methods
     void reset();
