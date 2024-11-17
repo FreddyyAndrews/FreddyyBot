@@ -9,9 +9,10 @@
 
 typedef unsigned long long u64;
 
-const int MATE_SCORE = 100000;
+const int MATE_SCORE = 1000000;
 const int EMERGENCY_MS = 5000; // Safety buffer to prevent flagging (e.g., reserve some time)
 const int BUFFER_MS = 500;
+const double TRADE_BONUS_FACTOR = 0.5;
 
 struct Evaluation
 {

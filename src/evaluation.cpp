@@ -4,13 +4,13 @@ Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, 
 {
     Evaluation position_evaluation = Evaluation();
     int depth = 1;
-    auto start_time = std::chrono::steady_clock::now();
+    // auto start_time = std::chrono::steady_clock::now();
     double remaining_material_ratio = get_remaining_material(board_representation);
     std::chrono::time_point<std::chrono::steady_clock> cutoff_time = find_time_condition(
         remaining_material_ratio, wtime, btime, winc, binc, board_representation.white_to_move);
 
     // Calculate allocated time in milliseconds
-    auto allocated_time = std::chrono::duration_cast<std::chrono::milliseconds>(cutoff_time - start_time).count();
+    // auto allocated_time = std::chrono::duration_cast<std::chrono::milliseconds>(cutoff_time - start_time).count();
     // std::cout << "Allocated " << allocated_time << " milliseconds" << std::endl;
 
     // Prepare move list
@@ -61,7 +61,7 @@ Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, 
         // Re-sort move list to put best_move first for better move ordering
         swap_best_move_to_front(move_list, position_evaluation.best_move);
 
-        auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(current_time - start_time).count();
+        // auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(current_time - start_time).count();
         // std::cout << "Searched depth " << depth << " in " << elapsed_time << " milliseconds" << std::endl;
         // std::cout << "The best move is " << position_evaluation.best_move.to_UCI() << std::endl;
         // std::cout << "The evaluation is " << position_evaluation.evaluation << std::endl;
@@ -173,6 +173,7 @@ int search(BoardRepresentation &board_representation, int depth, int alpha, int 
 int search_captures(BoardRepresentation &board_representation, int alpha, int beta, double remaining_material_ratio)
 {
     int evaluation = evaluate(board_representation, remaining_material_ratio);
+
     if (evaluation >= beta)
     {
         return beta;
@@ -315,6 +316,10 @@ int get_piece_value(char piece)
 int evaluate(BoardRepresentation &board_representation, double remaining_material_ratio)
 {
     int eval = 0;
+
+    int our_material_total = 0;
+    int opponent_material_total = 0;
+
     for (const Square &square : board_representation.non_empty_squares)
     {
         char piece = board_representation.board[square.rank][square.file];
@@ -327,6 +332,16 @@ int evaluate(BoardRepresentation &board_representation, double remaining_materia
         // Add material value
         int material_value = get_piece_value(piece_type);
         eval += material_value * eval_modifier;
+
+        // Accumulate material totals
+        if (is_opponent_piece)
+        {
+            opponent_material_total += material_value;
+        }
+        else
+        {
+            our_material_total += material_value;
+        }
 
         // Get positional value from the piece-square table
         int position_value = 0;
@@ -360,12 +375,12 @@ int evaluate(BoardRepresentation &board_representation, double remaining_materia
             position_value = queen_piece_square_table[rank][file];
             break;
         case 'k': // King
-            if (remaining_material_ratio >= 0.8)
+            if (remaining_material_ratio >= 0.7)
             {
                 // Use only the regular king table
                 position_value = king_piece_square_table[rank][file];
             }
-            else if (remaining_material_ratio <= 0.2)
+            else if (remaining_material_ratio <= 0.3)
             {
                 // Use only the endgame king table
                 position_value = king_endgame_piece_square_table[rank][file];
@@ -373,8 +388,8 @@ int evaluate(BoardRepresentation &board_representation, double remaining_materia
             else
             {
                 // Weighted calculation between regular and endgame tables
-                double weight_regular = (remaining_material_ratio - 0.2) / 0.6;
-                double weight_endgame = (0.8 - remaining_material_ratio) / 0.6;
+                double weight_regular = (remaining_material_ratio - 0.3) / 0.4;
+                double weight_endgame = (0.7 - remaining_material_ratio) / 0.4;
 
                 int regular_value = king_piece_square_table[rank][file];
                 int endgame_value = king_endgame_piece_square_table[rank][file];
@@ -391,6 +406,15 @@ int evaluate(BoardRepresentation &board_representation, double remaining_materia
         // Add positional value
         eval += position_value * eval_modifier;
     }
+
+    int material_difference = our_material_total - opponent_material_total;
+
+    // Calculate the trade bonus
+    // This promotes trading material when up and avoiding trades when down
+    double trade_bonus = material_difference * (1.0 - remaining_material_ratio) * TRADE_BONUS_FACTOR;
+
+    // Add the trade bonus to the evaluation score
+    eval += static_cast<int>(trade_bonus);
 
     return eval;
 }

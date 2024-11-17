@@ -10,10 +10,11 @@ TEST(EvaluationTest, TestMateIn1)
     EXPECT_EQ(MATE_SCORE - 1, eval.evaluation);
 }
 
-TEST(EvaluationTest, TestCaptureChain)
+TEST(EvaluationTest, TestMateIn2)
 {
-    BoardRepresentation board_representation = BoardRepresentation("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    BoardRepresentation board_representation = BoardRepresentation("2R5/2R5/8/8/8/7K/pn6/k1r3r1 w - - 0 1");
     Evaluation eval = find_best_move(board_representation);
-    std::cout << "Best move: " << eval.best_move.to_UCI() << std::endl;
-    EXPECT_EQ(0, 0);
+
+    EXPECT_EQ("c7c1", eval.best_move.to_UCI());
+    EXPECT_EQ(MATE_SCORE - 3, eval.evaluation);
 }

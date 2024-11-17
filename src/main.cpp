@@ -21,7 +21,7 @@ std::vector<std::string> split(const std::string &str, char delimiter)
 }
 
 // Main function to handle UCI communication
-int main(int argc, char **argv)
+int main()
 {
   BoardRepresentation board_representation;
   std::string input;
