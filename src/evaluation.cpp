@@ -6,12 +6,20 @@ Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, 
     int depth = 1;
     // auto start_time = std::chrono::steady_clock::now();
     double remaining_material_ratio = get_remaining_material(board_representation);
+    auto start_time = std::chrono::steady_clock::now();
     std::chrono::time_point<std::chrono::steady_clock> cutoff_time = find_time_condition(
         remaining_material_ratio, wtime, btime, winc, binc, board_representation.white_to_move);
 
+    // Open the log file in append mode
+    std::ofstream log_file("engine_log.txt", std::ios::app);
+    if (!log_file)
+    {
+        std::cerr << "Error: Unable to open log file." << std::endl;
+    }
+
     // Calculate allocated time in milliseconds
-    // auto allocated_time = std::chrono::duration_cast<std::chrono::milliseconds>(cutoff_time - start_time).count();
-    // std::cout << "Allocated " << allocated_time << " milliseconds" << std::endl;
+    auto allocated_time = std::chrono::duration_cast<std::chrono::milliseconds>(cutoff_time - start_time).count();
+    log_file << "Allocated " << allocated_time << " milliseconds" << std::endl;
 
     // Prepare move list
     std::vector<Move> move_list;
@@ -61,12 +69,12 @@ Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, 
         // Re-sort move list to put best_move first for better move ordering
         swap_best_move_to_front(move_list, position_evaluation.best_move);
 
-        // auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(current_time - start_time).count();
-        // std::cout << "Searched depth " << depth << " in " << elapsed_time << " milliseconds" << std::endl;
-        // std::cout << "The best move is " << position_evaluation.best_move.to_UCI() << std::endl;
-        // std::cout << "The evaluation is " << position_evaluation.evaluation << std::endl;
         ++depth;
     } while (true);
+
+    auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
+    log_file << "Searched depth " << depth << " in " << elapsed_time << " milliseconds" << std::endl;
+    log_file << "The evaluation is " << position_evaluation.evaluation << std::endl;
 
     return position_evaluation;
 }

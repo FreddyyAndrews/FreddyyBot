@@ -6,6 +6,7 @@
 #include <climits>
 #include <chrono>
 #include "piece_square_tables.h"
+#include <fstream>
 
 typedef unsigned long long u64;
 
