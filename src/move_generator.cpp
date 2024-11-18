@@ -856,6 +856,10 @@ u64 generate_legal_moves(BoardRepresentation &board_representation, std::vector<
     {
         board_representation.is_in_check = true;
     }
+    else
+    {
+        board_representation.is_in_check = false;
+    }
 
     return static_cast<u64>(move_list.size());
 }
