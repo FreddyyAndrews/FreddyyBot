@@ -14,6 +14,11 @@ const int MATE_SCORE = 1000000;
 const int EMERGENCY_MS = 5000; // Safety buffer to prevent flagging (e.g., reserve some time)
 const int BUFFER_MS = 500;
 const double TRADE_BONUS_FACTOR = 0.5;
+const int DOUBLED_PAWN_PENALTY = 25;
+const int CLOSE_PAWN_BONUS = 25;
+const int OPEN_KING_FILE_PENALTY = 50;
+const double ENDGAME_MATERIAL_CONDITION = 0.3;
+const double EARLY_GAME_MATERIAL_CONDITION = 0.7;
 
 struct Evaluation
 {
@@ -35,5 +40,13 @@ double get_remaining_material(BoardRepresentation &board_representation);
 std::chrono::time_point<std::chrono::steady_clock> find_time_condition(double remaining_material_ratio, int wtime, int btime,
                                                                        int winc, int binc, bool is_white_to_move);
 int compute_move_score(const Move &move, const BoardRepresentation &board_representation);
+int evaluate_king_safety(const BoardRepresentation &board_representation,
+                         double remaining_material_ratio,
+                         const std::vector<Square> &friendly_pawns,
+                         const std::vector<Square> &opp_pawns,
+                         const Square &king_pos,
+                         const Square &opp_king_pos);
+int evaluate_doubled_pawns(const std::vector<Square> &friendly_pawns,
+                           const std::vector<Square> &opp_pawns);
 
 #endif // EVALUATION_H

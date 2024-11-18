@@ -26,7 +26,8 @@ int main()
   std::string input;
 
   // Open the log file in append mode
-  std::ofstream log_file("engine_log.txt", std::ios::app);
+  std::ofstream log_file = open_log_file();
+
   if (!log_file)
   {
     std::cerr << "Error: Unable to open log file." << std::endl;

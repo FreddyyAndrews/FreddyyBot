@@ -329,21 +329,24 @@ int evaluate(BoardRepresentation &board_representation, double remaining_materia
 
     int our_material_total = 0;
     int opponent_material_total = 0;
+    std::vector<Square> friendly_pawns, opp_pawns;
+    Square king_pos, opp_king_pos;
 
+    // **Material and Positional Evaluation**
     for (const Square &square : board_representation.non_empty_squares)
     {
         char piece = board_representation.board[square.rank][square.file];
         bool is_opponent_piece = board_representation.is_opponent_piece(piece);
         int eval_modifier = is_opponent_piece ? -1 : 1;
 
-        // Get piece type in lowercase for uniformity
+        // **Normalize Piece Type**
         char piece_type = to_lower(piece);
 
-        // Add material value
+        // **Add Material Value**
         int material_value = get_piece_value(piece_type);
         eval += material_value * eval_modifier;
 
-        // Accumulate material totals
+        // **Accumulate Material Totals**
         if (is_opponent_piece)
         {
             opponent_material_total += material_value;
@@ -353,24 +356,32 @@ int evaluate(BoardRepresentation &board_representation, double remaining_materia
             our_material_total += material_value;
         }
 
-        // Get positional value from the piece-square table
+        // **Get Positional Value from Piece-Square Table**
         int position_value = 0;
-
-        // Flip rank for black pieces
         int rank = square.rank;
         int file = square.file;
 
-        // Adjust rank if the piece is white
+        // **Adjust Rank for White Pieces**
         if (is_white_piece(piece))
         {
             rank = 7 - rank;
         }
 
-        // Select the correct piece-square table
+        // **Select the Correct Piece-Square Table**
         switch (piece_type)
         {
         case 'p': // Pawn
             position_value = pawn_piece_square_table[rank][file];
+
+            // **Store Friendly and Opponent Pawn Locations**
+            if (is_opponent_piece)
+            {
+                opp_pawns.push_back(square);
+            }
+            else
+            {
+                friendly_pawns.push_back(square);
+            }
             break;
         case 'n': // Knight
             position_value = knight_piece_square_table[rank][file];
@@ -385,27 +396,35 @@ int evaluate(BoardRepresentation &board_representation, double remaining_materia
             position_value = queen_piece_square_table[rank][file];
             break;
         case 'k': // King
-            if (remaining_material_ratio >= 0.7)
+            if (is_opponent_piece)
             {
-                // Use only the regular king table
+                opp_king_pos = square;
+            }
+            else
+            {
+                king_pos = square;
+            }
+
+            // **King Position Evaluation Based on Game Phase**
+            if (remaining_material_ratio >= EARLY_GAME_MATERIAL_CONDITION)
+            {
                 position_value = king_piece_square_table[rank][file];
             }
-            else if (remaining_material_ratio <= 0.3)
+            else if (remaining_material_ratio <= ENDGAME_MATERIAL_CONDITION)
             {
-                // Use only the endgame king table
                 position_value = king_endgame_piece_square_table[rank][file];
             }
             else
             {
-                // Weighted calculation between regular and endgame tables
-                double weight_regular = (remaining_material_ratio - 0.3) / 0.4;
-                double weight_endgame = (0.7 - remaining_material_ratio) / 0.4;
+                double weight_regular = (remaining_material_ratio - ENDGAME_MATERIAL_CONDITION) /
+                                        (EARLY_GAME_MATERIAL_CONDITION - ENDGAME_MATERIAL_CONDITION);
+                double weight_endgame = 1.0 - weight_regular;
 
                 int regular_value = king_piece_square_table[rank][file];
                 int endgame_value = king_endgame_piece_square_table[rank][file];
 
                 position_value = static_cast<int>(
-                    weight_regular * regular_value + weight_endgame * endgame_value + 0.5); // +0.5 for rounding
+                    weight_regular * regular_value + weight_endgame * endgame_value + 0.5);
             }
             break;
         default:
@@ -413,18 +432,150 @@ int evaluate(BoardRepresentation &board_representation, double remaining_materia
             break;
         }
 
-        // Add positional value
+        // **Add Positional Value**
         eval += position_value * eval_modifier;
     }
 
+    // **Trade Bonus Calculation**
     int material_difference = our_material_total - opponent_material_total;
-
-    // Calculate the trade bonus
-    // This promotes trading material when up and avoiding trades when down
     double trade_bonus = material_difference * (1.0 - remaining_material_ratio) * TRADE_BONUS_FACTOR;
-
-    // Add the trade bonus to the evaluation score
     eval += static_cast<int>(trade_bonus);
+
+    // **King Safety Evaluation**
+    int king_safety_bonus = evaluate_king_safety(board_representation,
+                                                 remaining_material_ratio,
+                                                 friendly_pawns,
+                                                 opp_pawns,
+                                                 king_pos,
+                                                 opp_king_pos);
+    eval += king_safety_bonus;
+
+    // **Doubled Pawns Evaluation**
+    int doubled_pawns_penalty = evaluate_doubled_pawns(friendly_pawns, opp_pawns);
+    eval += doubled_pawns_penalty;
+
+    return eval;
+}
+
+int evaluate_king_safety(const BoardRepresentation &board_representation,
+                         double remaining_material_ratio,
+                         const std::vector<Square> &friendly_pawns,
+                         const std::vector<Square> &opp_pawns,
+                         const Square &king_pos,
+                         const Square &opp_king_pos)
+{
+    int white_king_safety_bonus = 0;
+    int black_king_safety_bonus = 0;
+
+    const std::vector<Square> &white_pawns = board_representation.white_to_move ? friendly_pawns : opp_pawns;
+    const std::vector<Square> &black_pawns = board_representation.white_to_move ? opp_pawns : friendly_pawns;
+    const Square &white_king = board_representation.white_to_move ? king_pos : opp_king_pos;
+    const Square &black_king = board_representation.white_to_move ? opp_king_pos : king_pos;
+
+    // **White King Safety Evaluation**
+    if (!board_representation.white_can_castle_kingside &&
+        !board_representation.white_can_castle_queenside &&
+        remaining_material_ratio > ENDGAME_MATERIAL_CONDITION)
+    {
+        bool white_king_file_open = true;
+
+        for (const Square &pawn : white_pawns)
+        {
+            int distance_to_king = std::max(std::abs(white_king.rank - pawn.rank),
+                                            std::abs(white_king.file - pawn.file));
+
+            if (distance_to_king <= 1)
+            {
+                white_king_safety_bonus += CLOSE_PAWN_BONUS;
+            }
+
+            if (pawn.file == white_king.file)
+            {
+                white_king_file_open = false;
+            }
+        }
+
+        if (white_king_file_open)
+        {
+            white_king_safety_bonus -= OPEN_KING_FILE_PENALTY;
+        }
+    }
+
+    // **Black King Safety Evaluation**
+    if (!board_representation.black_can_castle_kingside &&
+        !board_representation.black_can_castle_queenside &&
+        remaining_material_ratio > ENDGAME_MATERIAL_CONDITION)
+    {
+        bool black_king_file_open = true;
+
+        for (const Square &pawn : black_pawns)
+        {
+            int distance_to_king = std::max(std::abs(black_king.rank - pawn.rank),
+                                            std::abs(black_king.file - pawn.file));
+
+            if (distance_to_king <= 1)
+            {
+                black_king_safety_bonus += CLOSE_PAWN_BONUS;
+            }
+
+            if (pawn.file == black_king.file)
+            {
+                black_king_file_open = false;
+            }
+        }
+
+        if (black_king_file_open)
+        {
+            black_king_safety_bonus -= OPEN_KING_FILE_PENALTY;
+        }
+    }
+
+    // **Calculate the King Safety Difference**
+    int king_safety_difference = white_king_safety_bonus - black_king_safety_bonus;
+    int king_safety_bonus = board_representation.white_to_move ? king_safety_difference : -king_safety_difference;
+
+    return king_safety_bonus;
+}
+
+int evaluate_doubled_pawns(const std::vector<Square> &friendly_pawns,
+                           const std::vector<Square> &opp_pawns)
+{
+    int eval = 0;
+
+    // **Initialize Arrays to Count Pawns on Each File**
+    int friendly_pawn_count_by_file[8] = {0};
+    int opponent_pawn_count_by_file[8] = {0};
+
+    // **Count Friendly Pawns on Each File**
+    for (const Square &pawn : friendly_pawns)
+    {
+        friendly_pawn_count_by_file[pawn.file]++;
+    }
+
+    // **Count Opponent Pawns on Each File**
+    for (const Square &pawn : opp_pawns)
+    {
+        opponent_pawn_count_by_file[pawn.file]++;
+    }
+
+    // **Apply Penalties and Bonuses**
+    for (int file = 0; file < 8; ++file)
+    {
+        int friendly_pawns_on_file = friendly_pawn_count_by_file[file];
+        int opponent_pawns_on_file = opponent_pawn_count_by_file[file];
+
+        // **Penalty for Doubled Friendly Pawns**
+        if (friendly_pawns_on_file > 1)
+        {
+            eval -= (friendly_pawns_on_file - 1) * DOUBLED_PAWN_PENALTY;
+        }
+
+        // **Bonus if Opponent Has Doubled Pawns**
+        if (opponent_pawns_on_file > 1)
+        {
+            eval += (opponent_pawns_on_file - 1) * DOUBLED_PAWN_PENALTY;
+        }
+    }
 
     return eval;
 }
