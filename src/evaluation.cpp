@@ -1,6 +1,6 @@
 #include "evaluation.h"
 
-Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, int btime, int winc, int binc)
+Evaluation find_best_move(BoardRepresentation &board_representation, bool am_logging, int wtime, int btime, int winc, int binc)
 {
     Evaluation position_evaluation = Evaluation();
     int depth = 1;
@@ -11,15 +11,14 @@ Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, 
         remaining_material_ratio, wtime, btime, winc, binc, board_representation.white_to_move);
 
     // Open the log file in append mode
-    std::ofstream log_file("engine_log.txt", std::ios::app);
-    if (!log_file)
-    {
-        std::cerr << "Error: Unable to open log file." << std::endl;
-    }
+    std::ofstream log_file = open_log_file();
 
-    // Calculate allocated time in milliseconds
-    auto allocated_time = std::chrono::duration_cast<std::chrono::milliseconds>(cutoff_time - start_time).count();
-    log_file << "Allocated " << allocated_time << " milliseconds" << std::endl;
+    if (am_logging)
+    {
+        // Calculate allocated time in milliseconds
+        auto allocated_time = std::chrono::duration_cast<std::chrono::milliseconds>(cutoff_time - start_time).count();
+        log_file << "Debug: Allocated " << allocated_time << " milliseconds" << std::endl;
+    }
 
     // Prepare move list
     std::vector<Move> move_list;
@@ -72,9 +71,12 @@ Evaluation find_best_move(BoardRepresentation &board_representation, int wtime, 
         ++depth;
     } while (true);
 
-    auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
-    log_file << "Searched depth " << depth << " in " << elapsed_time << " milliseconds" << std::endl;
-    log_file << "The evaluation is " << position_evaluation.evaluation << std::endl;
+    if (am_logging)
+    {
+        auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
+        log_file << "Debug: Searched depth " << depth << " in " << elapsed_time << " milliseconds" << std::endl;
+        log_file << "Debug: The evaluation is " << position_evaluation.evaluation << std::endl;
+    }
 
     return position_evaluation;
 }

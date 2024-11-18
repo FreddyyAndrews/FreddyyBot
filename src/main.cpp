@@ -5,7 +5,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include <fstream> // Included for file operations
 
 // Function to split a string by spaces
 std::vector<std::string> split(const std::string &str, char delimiter)
@@ -110,7 +109,7 @@ int main()
     {
       if (tokens.size() == 1)
       {
-        Evaluation best_move = find_best_move(board_representation);
+        Evaluation best_move = find_best_move(board_representation, true);
         std::cout << "bestmove " << best_move.best_move.to_UCI() << std::endl;
 
         // Log the output
@@ -121,7 +120,7 @@ int main()
       {
         int wtime = std::stoi(tokens[2]);
         int btime = std::stoi(tokens[4]);
-        Evaluation best_move = find_best_move(board_representation, wtime, btime);
+        Evaluation best_move = find_best_move(board_representation, true, wtime, btime);
         std::cout << "bestmove " << best_move.best_move.to_UCI() << std::endl;
 
         // Log the output
@@ -137,7 +136,7 @@ int main()
 
         // Here, you would add your logic for the engine to calculate the best move based on the provided time control.
         // For now, just output a dummy best move.
-        Evaluation best_move = find_best_move(board_representation, wtime, btime, winc, binc);
+        Evaluation best_move = find_best_move(board_representation, true, wtime, btime, winc, binc);
         std::cout << "bestmove " << best_move.best_move.to_UCI() << std::endl;
 
         // Log the output
@@ -154,6 +153,7 @@ int main()
     }
     else if (tokens[0] == "quit")
     {
+      increment_game_num();
       break;
     }
     else if (tokens[0] == "ucinewgame")

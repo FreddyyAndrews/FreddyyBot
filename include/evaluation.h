@@ -6,7 +6,7 @@
 #include <climits>
 #include <chrono>
 #include "piece_square_tables.h"
-#include <fstream>
+#include "logging.h"
 
 typedef unsigned long long u64;
 
@@ -24,7 +24,7 @@ struct Evaluation
     Evaluation() : best_move(Move()), evaluation(0) {}
 };
 
-Evaluation find_best_move(BoardRepresentation &board_representation, const int wtime = 30000, const int btime = 30000, const int winc = 0, const int binc = 0);
+Evaluation find_best_move(BoardRepresentation &board_representation, const bool am_logging = false, const int wtime = 30000, const int btime = 30000, const int winc = 0, const int binc = 0);
 int search(BoardRepresentation &board_representation, int depth, int alpha, int beta, double remaining_material_ratio, int starting_depth);
 int search_captures(BoardRepresentation &board_representation, int alpha, int beta, double remaining_material_ratio);
 void sort_for_pruning(std::vector<Move> &move_list, const BoardRepresentation &board_representation);
