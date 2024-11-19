@@ -5,3 +5,4 @@ reports/
 build/
 *.csv
 *.txt
+config.yml
