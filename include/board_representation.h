@@ -34,7 +34,7 @@ public:
     // Utility methods
     void reset();
     // Reset the board to the initial position
-    void print_board() const; // Print the board for debugging purposes
+    // void print_board() const; // Print the board for debugging purposes
 
     // 2D array for storing pieces for lookup
     char board[8][8];

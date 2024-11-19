@@ -833,7 +833,6 @@ u64 generate_legal_moves(BoardRepresentation &board_representation, std::vector<
         if (board_representation.move_captures_king(move))
         {
             std::cout << "Move: " << move.to_UCI() << " captured the king.";
-            board_representation.print_board();
             throw std::runtime_error("king was captured.");
         }
 

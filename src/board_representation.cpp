@@ -1,5 +1,5 @@
 #include "board_representation.h"
-#include <ncurses.h>
+// #include <ncurses.h>
 #include <iostream>
 #include <sstream>
 #include <vector>
@@ -575,6 +575,7 @@ wchar_t BoardRepresentation::get_piece_at_square(int square) const
     }
 }
 
+/*
 void BoardRepresentation::print_board() const
 {
     // Initialize ncurses
@@ -664,6 +665,7 @@ void BoardRepresentation::print_board() const
     // End ncurses mode
     endwin();
 }
+*/
 
 bool BoardRepresentation::is_only_between(const Square &square_a, const Square &square_b, const Square &between_square) const
 {
