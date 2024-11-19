@@ -76,3 +76,6 @@ test: $(TEST_EXECUTABLES)
 # Rule to build and run the main program
 run: $(BIN_DIR)/main
 	$(BIN_DIR)/main
+
+# Rule to build the main executable without running it
+build: $(BIN_DIR)/main
