@@ -8,7 +8,7 @@ FreddyBot is my homemade chess engine written from scratch in C++.
 
 ![Alt text](assets/challenge.png)
 
-Click ```Challenge to a Game``` and choose a format and time control. FreddyBot only accepts challenges to standard chess games, but you can select any time control.
+Click ```Challenge to a Game``` and choose a format and time control. FreddyBot only accepts challenges to standard chess games, but you can select any time control. Note you must create a Lichess account.
 
 ## Getting Started
 
