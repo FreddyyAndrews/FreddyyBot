@@ -4,7 +4,7 @@ Credit: MattSteeleArtworks on Reddit
 
 FreddyBot is my homemade chess engine written from scratch in C++.
 
-[Think you can beat it? Give it a try!]()
+[Think you can beat it? Make a Lichess account and send a challenge!](https://lichess.org/@/FreddyyBot)
 
 ## Getting Started
 
