@@ -1,4 +1,6 @@
 # FreddyyBot
+![Alt text](assets/16-bit-and-32-bit-chess-piece-sets-inspired-by-8-bit-piece-v0-fmf0qlihhzna1.png)
+Credit: MattSteeleArtworks on Reddit
 
 FreddyBot is my homemade chess engine written from scratch in C++.
 
