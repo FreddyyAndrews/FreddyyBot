@@ -9,10 +9,10 @@ INCLUDE_DIRS = -Iinclude -isystem /usr/src/googletest/googletest/include
 LIB_DIRS = -L/usr/lib
 
 # Libraries for the main program
-MAIN_LIBS = -pthread -lncursesw -ltinfo
+MAIN_LIBS = -pthread -ltinfo # -lncursesw
 
 # Libraries for test executables (include gtest_main)
-TEST_LIBS = -lgtest_main -lgtest -pthread -lncursesw -ltinfo
+TEST_LIBS = -lgtest_main -lgtest -pthread -ltinfo # -lncursesw
 
 # Directories
 SRC_DIR := src
