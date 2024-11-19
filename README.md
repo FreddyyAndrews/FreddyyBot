@@ -49,6 +49,6 @@ This project is licensed under the MIT License - see the LICENSE.md file for det
 
 ## Acknowledgments
 
-Inspiration, code snippets, etc.
 * [Sebastian Lague](https://www.youtube.com/watch?v=U4ogK0MIzqk&ab_channel=SebastianLague)
 * [Chess Programming Wiki](https://www.chessprogramming.org/Main_Page)
+* [Lichess-bot](https://github.com/lichess-bot-devs/lichess-bot)
