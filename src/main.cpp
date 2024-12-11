@@ -115,7 +115,6 @@ int main()
 
         // Log the output
         log_file << "Sent: bestmove " << best_move.best_move.to_UCI() << std::endl;
-        log_file << "My eval: " << best_move.evaluation << std::endl;
       }
       else if (tokens.size() == 5 && tokens[1] == "wtime" && tokens[3] == "btime")
       {
@@ -126,7 +125,6 @@ int main()
 
         // Log the output
         log_file << "Sent: bestmove " << best_move.best_move.to_UCI() << std::endl;
-        log_file << "My eval: " << best_move.evaluation << std::endl;
       }
       else if (tokens.size() == 9 && tokens[1] == "wtime" && tokens[3] == "btime" && tokens[5] == "winc" && tokens[7] == "binc")
       {
@@ -142,7 +140,6 @@ int main()
 
         // Log the output
         log_file << "Sent: bestmove " << best_move.best_move.to_UCI() << std::endl;
-        log_file << "My eval: " << best_move.evaluation << std::endl;
       }
       else
       {
@@ -154,7 +151,6 @@ int main()
     }
     else if (tokens[0] == "quit")
     {
-      increment_game_num();
       break;
     }
     else if (tokens[0] == "ucinewgame")

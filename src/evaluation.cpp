@@ -10,6 +10,9 @@ Evaluation find_best_move(BoardRepresentation &board_representation, bool am_log
     std::chrono::time_point<std::chrono::steady_clock> cutoff_time = find_time_condition(
         remaining_material_ratio, wtime, btime, winc, binc, board_representation.white_to_move);
 
+    int previous_iteration_nodes = -1;
+    int current_iteration_nodes = -1;
+
     // Open the log file in append mode
     std::ofstream log_file = open_log_file();
 
@@ -30,14 +33,16 @@ Evaluation find_best_move(BoardRepresentation &board_representation, bool am_log
     // iterative deepening
     do
     {
+        auto iteration_start_time = std::chrono::steady_clock::now();
         int alpha = -INT_MAX;
         int beta = INT_MAX;
         Move best_move;
+        current_iteration_nodes = 0;
 
         for (const Move &move : move_list)
         {
             board_representation.make_move(move);
-            int evaluation = -search(board_representation, depth - 1, -beta, -alpha, remaining_material_ratio, depth);
+            int evaluation = -search(board_representation, depth - 1, -beta, -alpha, remaining_material_ratio, depth, current_iteration_nodes);
             board_representation.undo_move(move);
 
             if (evaluation > alpha)
@@ -49,7 +54,6 @@ Evaluation find_best_move(BoardRepresentation &board_representation, bool am_log
             // handle mid search timeout
             if (depth != 1 && std::chrono::steady_clock::now() > cutoff_time)
             {
-                // std::cout << "Timed out mid search " << depth << std::endl;
                 break;
             }
         }
@@ -57,19 +61,18 @@ Evaluation find_best_move(BoardRepresentation &board_representation, bool am_log
         position_evaluation.best_move = best_move;
         position_evaluation.evaluation = alpha;
 
-        // Check elapsed time
-        auto current_time = std::chrono::steady_clock::now();
-        if (current_time > cutoff_time)
-        {
-            // std::cout << "Timed out at depth " << depth << std::endl;
-            break;
-        }
-
         // Re-sort move list to put best_move first for better move ordering
         swap_best_move_to_front(move_list, position_evaluation.best_move);
 
+        if (depth != 1 && !should_continue_iterating(current_iteration_nodes, previous_iteration_nodes, iteration_start_time, cutoff_time))
+        {
+            break;
+        }
+
         ++depth;
-    } while (true);
+        previous_iteration_nodes = current_iteration_nodes; // Set this iterations nodes to be the last iteration nodes
+
+    } while (std::chrono::steady_clock::now() < cutoff_time);
 
     if (am_logging)
     {
@@ -79,39 +82,6 @@ Evaluation find_best_move(BoardRepresentation &board_representation, bool am_log
     }
 
     return position_evaluation;
-}
-
-std::chrono::time_point<std::chrono::steady_clock> find_time_condition(double remaining_material_ratio, int wtime, int btime,
-                                                                       int winc, int binc, bool is_white_to_move)
-{
-    int remaining_time = is_white_to_move ? wtime : btime;
-    int increment = is_white_to_move ? winc : binc;
-
-    if (remaining_time < EMERGENCY_MS) // handle very low time
-    {
-        int time_per_move = std::max(10, increment - BUFFER_MS);
-        auto start_time = std::chrono::steady_clock::now();
-        return start_time + std::chrono::milliseconds(time_per_move);
-    }
-
-    // Determine the number of moves left based on the remaining material ratio
-    // Assume full game length of 60 moves at the start and 30 moves near the end (conservative to avoid flagging)
-    int moves_left = static_cast<int>(60 * remaining_material_ratio + 30 * (1 - remaining_material_ratio));
-
-    // Basic time allocation per move
-    int time_per_move = remaining_time / moves_left;
-
-    // Adjust time per move based on increment
-    time_per_move += increment;
-
-    int max_time = 20000; // milliseconds (20 seconds)
-
-    // Clamp the time_per_move within min and max limits
-    time_per_move = std::max(10, std::min(time_per_move, max_time) - BUFFER_MS);
-
-    // Calculate the cutoff time as a time point in the future
-    auto start_time = std::chrono::steady_clock::now();
-    return start_time + std::chrono::milliseconds(time_per_move);
 }
 
 double get_remaining_material(BoardRepresentation &board_representation)
@@ -135,10 +105,11 @@ double get_remaining_material(BoardRepresentation &board_representation)
     return remaining_material_ratio;
 }
 
-int search(BoardRepresentation &board_representation, int depth, int alpha, int beta, double remaining_material_ratio, int starting_depth)
+int search(BoardRepresentation &board_representation, int depth, int alpha, int beta, double remaining_material_ratio, int starting_depth, int &current_iteration_nodes)
 {
     if (depth == 0)
     {
+        ++current_iteration_nodes;
         return search_captures(board_representation, alpha, beta, remaining_material_ratio);
     }
 
@@ -163,7 +134,7 @@ int search(BoardRepresentation &board_representation, int depth, int alpha, int 
     for (const Move &move : move_list)
     {
         board_representation.make_move(move);
-        int evaluation = -search(board_representation, depth - 1, -beta, -alpha, remaining_material_ratio, starting_depth);
+        int evaluation = -search(board_representation, depth - 1, -beta, -alpha, remaining_material_ratio, starting_depth, current_iteration_nodes);
         board_representation.undo_move(move);
 
         if (evaluation >= beta)
