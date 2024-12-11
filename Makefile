@@ -1,9 +1,9 @@
 # Compiler and flags
 CXX = g++
-CXXFLAGS = -O3 -v -pedantic-errors -Wall -Weffc++ -Wextra -Wconversion -Wsign-conversion -Werror -std=c++23
+CXXFLAGS = -O3 -pedantic-errors -Wall -Weffc++ -Wextra -Wconversion -Wsign-conversion -Werror -std=c++23
 
 # Include directories
-INCLUDE_DIRS = -Iinclude #-isystem # /usr/src/googletest/googletest/include
+INCLUDE_DIRS = -Iinclude -isystem /usr/src/googletest/googletest/include
 
 # Library directories
 LIB_DIRS = -L/usr/lib

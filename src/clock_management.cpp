@@ -32,7 +32,7 @@ bool should_continue_iterating(int current_iteration_nodes, int previous_iterati
                                std::chrono::steady_clock::time_point iteration_start_time,
                                std::chrono::steady_clock::time_point cutoff_time)
 {
-    double ebf = double(current_iteration_nodes) / double(previous_iteration_nodes);
+    double ebf = std::sqrt(double(current_iteration_nodes) / double(previous_iteration_nodes));
 
     // Estimate next iteration node count
     double expected_nodes_next = current_iteration_nodes * ebf;

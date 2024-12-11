@@ -5,6 +5,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <sstream>
+#include <atomic>
 
 // Function to split a string by spaces
 std::vector<std::string> split(const std::string &str, char delimiter)
@@ -19,20 +21,43 @@ std::vector<std::string> split(const std::string &str, char delimiter)
   return tokens;
 }
 
+// Helper function to stop and join the pondering thread
+void stopPondering(std::thread &ponder_thread, std::atomic<bool> &stop_pondering, ThreadSafeLogger &logger)
+{
+  if (ponder_thread.joinable())
+  {
+    logger.write("Debug", "Stopping pondering thread...");
+    stop_pondering = true; // Signal the thread to stop
+
+    auto start_time = std::chrono::steady_clock::now();
+
+    // Join the thread to ensure it has finished execution
+    ponder_thread.join();
+
+    std::ostringstream oss;
+    oss << "Pondering thread stopped in "
+        << std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::steady_clock::now() - start_time)
+               .count()
+        << " ms";
+    logger.write("Debug", oss.str());
+  }
+}
+
 // Main function to handle UCI communication
 int main()
 {
   BoardRepresentation board_representation;
   std::string input;
+  Move best_move, ponder_move;
 
-  // Open the log file in append mode
-  std::ofstream log_file = open_log_file();
+  // Pondering thread control
+  std::thread ponder_thread;
+  std::atomic<bool> stop_pondering(false);
+  std::mutex ponder_mutex;
+  Move next_ponder_move, best_move_pondered;
 
-  if (!log_file)
-  {
-    std::cerr << "Error: Unable to open log file." << std::endl;
-    return 1;
-  }
+  ThreadSafeLogger &logger = ThreadSafeLogger::getInstance("logs/app_log.txt");
 
   while (true)
   {
@@ -41,23 +66,30 @@ int main()
       continue;
 
     // Log the input
-    log_file << "Received: " << input << std::endl;
+    logger.write("Input", input);
 
     std::vector<std::string> tokens = split(input, ' ');
+
+    // Stop pondering for all commands except "ponderhit"
+    if (tokens[0] != "ponderhit")
+    {
+      stopPondering(ponder_thread, stop_pondering, logger);
+    }
+
+    if (tokens[0] != "go" && tokens[0] != "ponderhit") // reset ponder move
+    {
+      ponder_move = Move();
+    }
 
     if (tokens[0] == "uci")
     {
       std::cout << "uciok" << std::endl;
-
-      // Log the output
-      log_file << "Sent: uciok" << std::endl;
+      logger.write("Output", "uciok");
     }
     else if (tokens[0] == "isready")
     {
       std::cout << "readyok" << std::endl;
-
-      // Log the output
-      log_file << "Sent: readyok" << std::endl;
+      logger.write("Output", "readyok");
     }
     else if (tokens[0] == "position")
     {
@@ -81,6 +113,7 @@ int main()
           fen += tokens[i] + " ";
         }
         board_representation = BoardRepresentation(fen);
+
         size_t moves_index = 0;
         for (size_t i = 2; i < tokens.size(); ++i)
         {
@@ -101,76 +134,89 @@ int main()
       else
       {
         std::cerr << "Error: Invalid position command" << std::endl;
-
-        // Log the error
-        log_file << "Error: Invalid position command" << std::endl;
+        logger.write("Error", "Invalid position command");
       }
     }
     else if (tokens[0] == "go")
     {
-      if (tokens.size() == 1)
+      int wtime = 30000, btime = 30000, winc = 0, binc = 0;
+
+      // Parse the input tokens for time controls
+      if (tokens.size() >= 5 && tokens[1] == "wtime" && tokens[3] == "btime")
       {
-        Evaluation best_move = find_best_move(board_representation, true);
-        std::cout << "bestmove " << best_move.best_move.to_UCI() << std::endl;
+        wtime = std::stoi(tokens[2]);
+        btime = std::stoi(tokens[4]);
 
-        // Log the output
-        log_file << "Sent: bestmove " << best_move.best_move.to_UCI() << std::endl;
+        if (tokens.size() == 9 && tokens[5] == "winc" && tokens[7] == "binc")
+        {
+          winc = std::stoi(tokens[6]);
+          binc = std::stoi(tokens[8]);
+        }
       }
-      else if (tokens.size() == 5 && tokens[1] == "wtime" && tokens[3] == "btime")
+
+      // Call find_best_move with the parsed time controls
+      best_move = find_best_move(board_representation, ponder_move, true, wtime, btime, winc, binc).best_move;
+
+      if (!ponder_move.is_instantiated())
       {
-        int wtime = std::stoi(tokens[2]);
-        int btime = std::stoi(tokens[4]);
-        Evaluation best_move = find_best_move(board_representation, true, wtime, btime);
-        std::cout << "bestmove " << best_move.best_move.to_UCI() << std::endl;
-
-        // Log the output
-        log_file << "Sent: bestmove " << best_move.best_move.to_UCI() << std::endl;
+        throw std::runtime_error("Ponder move not instantiated");
       }
-      else if (tokens.size() == 9 && tokens[1] == "wtime" && tokens[3] == "btime" && tokens[5] == "winc" && tokens[7] == "binc")
+
+      if (!best_move.is_instantiated())
       {
-        int wtime = std::stoi(tokens[2]);
-        int btime = std::stoi(tokens[4]);
-        int winc = std::stoi(tokens[6]);
-        int binc = std::stoi(tokens[8]);
-
-        // Here, you would add your logic for the engine to calculate the best move based on the provided time control.
-        // For now, just output a dummy best move.
-        Evaluation best_move = find_best_move(board_representation, true, wtime, btime, winc, binc);
-        std::cout << "bestmove " << best_move.best_move.to_UCI() << std::endl;
-
-        // Log the output
-        log_file << "Sent: bestmove " << best_move.best_move.to_UCI() << std::endl;
+        throw std::runtime_error("Best move not instantiated");
       }
-      else
+
+      std::cout << "bestmove " << best_move.to_UCI() << " ponder " << ponder_move.to_UCI() << std::endl;
+
+      std::ostringstream oss;
+      oss << "bestmove " << best_move.to_UCI() << " ponder " << ponder_move.to_UCI();
+      logger.write("Output", oss.str());
+    }
+    else if (tokens[0] == "ponderhit")
+    {
+      logger.write("Input", "ponderhit");
+      // Ensure the pondering thread finishes
+      stopPondering(ponder_thread, stop_pondering, logger);
+
       {
-        std::cerr << "Error: Invalid go command format" << std::endl;
-
-        // Log the error
-        log_file << "Error: Invalid go command format" << std::endl;
+        std::lock_guard<std::mutex> lock(ponder_mutex);
+        best_move = best_move_pondered;
+        ponder_move = next_ponder_move;
       }
+
+      std::cout << "bestmove " << best_move.to_UCI() << " ponder " << ponder_move.to_UCI() << std::endl;
+
+      std::ostringstream oss;
+      oss << "bestmove " << best_move.to_UCI() << " ponder " << ponder_move.to_UCI();
+      logger.write("Output", oss.str());
     }
     else if (tokens[0] == "quit")
     {
       break;
     }
-    else if (tokens[0] == "ucinewgame")
-    {
-      continue;
-    }
     else
     {
       std::cerr << "Error: Unknown command" << std::endl;
-
-      // Log the error
-      log_file << "Error: Unknown command" << std::endl;
+      logger.write("Error", "Unknown command");
     }
 
-    // Flush the log file to ensure data is written
-    log_file.flush();
+    if (ponder_move.is_instantiated() && best_move.is_instantiated()) // handle pondering on separate thread
+    {
+      stop_pondering = false;
+      ponder_thread = std::thread(ponder,
+                                  std::cref(board_representation), // Pass by const reference
+                                  std::cref(best_move),            // Pass by reference
+                                  std::cref(ponder_move),          // Pass by reference
+                                  std::ref(next_ponder_move),      // Pass by reference
+                                  std::ref(best_move_pondered),    // Pass by reference
+                                  true,                            // Pass by value
+                                  std::cref(stop_pondering));      // Pass atomic<bool> by const reference
+    }
+
+    logger.flush();
   }
 
-  // Close the log file
-  log_file.close();
-
+  logger.flush();
   return 0;
 }

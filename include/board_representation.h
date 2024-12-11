@@ -31,9 +31,6 @@ public:
     // Methods for specific game states
     bool move_captures_king(const Move &) const; // Check if a move captures a king piece
 
-    // Utility methods
-    void reset();
-    // Reset the board to the initial position
     // void print_board() const; // Print the board for debugging purposes
 
     // 2D array for storing pieces for lookup
@@ -52,6 +49,7 @@ public:
     int fullmove_number; // Number of full moves
     std::unordered_set<Square> non_empty_squares;
     bool is_in_check;
+
 private:
     // Helper methods for legal move generation and game status checks
     wchar_t get_piece_at_square(int square) const; // Get the piece at a square

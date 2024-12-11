@@ -5,6 +5,7 @@
 #include "board_representation.h"
 #include <climits>
 #include <chrono>
+#include <cmath>
 
 typedef unsigned long long u64;
 

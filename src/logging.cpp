@@ -1,15 +1,41 @@
 #include "logging.h"
-#include <iostream>
 
-const std::string log_file_path = "logs/engine_log.txt";
-
-std::ofstream open_log_file()
+// Constructor for Singleton (initializing logFile via initialization list)
+ThreadSafeLogger::ThreadSafeLogger(const std::string &filePath)
+    : logFile(filePath, std::ios::app), logMutex() // Initialize logFile
 {
-
-    std::ofstream logFile(log_file_path, std::ios::app);
     if (!logFile.is_open())
     {
-        std::cerr << "Error: Unable to open log file." << std::endl;
+        throw std::ios_base::failure("Error: Unable to open log file.");
     }
-    return logFile;
+}
+
+// Static method to get the singleton instance
+ThreadSafeLogger &ThreadSafeLogger::getInstance(const std::string &filePath)
+{
+    static ThreadSafeLogger instance(filePath);
+    return instance;
+}
+
+// Destructor to close the log file
+ThreadSafeLogger::~ThreadSafeLogger()
+{
+    if (logFile.is_open())
+    {
+        logFile.close();
+    }
+}
+
+// Atomic write method with log level and thread ID
+void ThreadSafeLogger::write(const std::string &level, const std::string &message)
+{
+    std::lock_guard<std::mutex> lock(logMutex); // Lock the mutex
+    logFile << "[" << level << "]: " << message << std::endl;
+}
+
+// Flush method to ensure all data is written to the file
+void ThreadSafeLogger::flush()
+{
+    std::lock_guard<std::mutex> lock(logMutex); // Lock the mutex
+    logFile.flush();                            // Flush the buffer
 }

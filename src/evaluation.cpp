@@ -1,6 +1,7 @@
 #include "evaluation.h"
 
-Evaluation find_best_move(BoardRepresentation &board_representation, bool am_logging, int wtime, int btime, int winc, int binc)
+Evaluation find_best_move(BoardRepresentation &board_representation, Move &ponder_move,
+                          bool am_logging, int wtime, int btime, int winc, int binc)
 {
     Evaluation position_evaluation = Evaluation();
     int depth = 1;
@@ -13,14 +14,15 @@ Evaluation find_best_move(BoardRepresentation &board_representation, bool am_log
     int previous_iteration_nodes = -1;
     int current_iteration_nodes = -1;
 
-    // Open the log file in append mode
-    std::ofstream log_file = open_log_file();
+    ThreadSafeLogger &logger = ThreadSafeLogger::getInstance("logs/app_log.txt");
 
     if (am_logging)
     {
         // Calculate allocated time in milliseconds
         auto allocated_time = std::chrono::duration_cast<std::chrono::milliseconds>(cutoff_time - start_time).count();
-        log_file << "Debug: Allocated " << allocated_time << " milliseconds" << std::endl;
+        std::ostringstream oss;
+        oss << "Allocated " << allocated_time << " milliseconds";
+        logger.write("Debug", oss.str());
     }
 
     // Prepare move list
@@ -38,23 +40,27 @@ Evaluation find_best_move(BoardRepresentation &board_representation, bool am_log
         int beta = INT_MAX;
         Move best_move;
         current_iteration_nodes = 0;
+        bool stop = false;
 
         for (const Move &move : move_list)
         {
+            // handle mid search timeout
+            if (depth > MIN_DEPTH_SEARCHED && std::chrono::steady_clock::now() > cutoff_time)
+            {
+                stop = true;
+                break;
+            }
+
             board_representation.make_move(move);
-            int evaluation = -search(board_representation, depth - 1, -beta, -alpha, remaining_material_ratio, depth, current_iteration_nodes);
+            int evaluation = -search(board_representation, depth - 1, -beta,
+                                     -alpha, remaining_material_ratio, depth,
+                                     current_iteration_nodes, ponder_move, stop);
             board_representation.undo_move(move);
 
             if (evaluation > alpha)
             {
                 alpha = evaluation;
                 best_move = move;
-            }
-
-            // handle mid search timeout
-            if (depth != 1 && std::chrono::steady_clock::now() > cutoff_time)
-            {
-                break;
             }
         }
 
@@ -64,7 +70,8 @@ Evaluation find_best_move(BoardRepresentation &board_representation, bool am_log
         // Re-sort move list to put best_move first for better move ordering
         swap_best_move_to_front(move_list, position_evaluation.best_move);
 
-        if (depth != 1 && !should_continue_iterating(current_iteration_nodes, previous_iteration_nodes, iteration_start_time, cutoff_time))
+        if (depth != 1 && !should_continue_iterating(current_iteration_nodes, previous_iteration_nodes,
+                                                     iteration_start_time, cutoff_time))
         {
             break;
         }
@@ -76,12 +83,95 @@ Evaluation find_best_move(BoardRepresentation &board_representation, bool am_log
 
     if (am_logging)
     {
-        auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
-        log_file << "Debug: Searched depth " << depth << " in " << elapsed_time << " milliseconds" << std::endl;
-        log_file << "Debug: The evaluation is " << position_evaluation.evaluation << std::endl;
+        auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                std::chrono::steady_clock::now() - start_time)
+                                .count();
+        std::ostringstream oss;
+        oss << "Searched depth " << depth << " in " << elapsed_time << " milliseconds";
+        logger.write("Debug", oss.str());
+        std::ostringstream oss2;
+        oss2 << "The evaluation is " << position_evaluation.evaluation;
+        logger.write("Debug", oss2.str());
     }
 
     return position_evaluation;
+}
+
+void ponder(const BoardRepresentation &board_representation, const Move &my_played_move, const Move &ponder_move,
+            Move &next_ponder_move, Move &best_move_found,
+            bool am_logging, const std::atomic<bool> &stop_pondering)
+{
+    BoardRepresentation ponder_board = board_representation; // copy board representation to not interfere with game state
+    // Set up the board for pondering
+    ponder_board.make_move(my_played_move);
+    ponder_board.make_move(ponder_move);
+
+    // Set starting depth
+    int depth = 1;
+    // auto start_time = std::chrono::steady_clock::now();
+    double remaining_material_ratio = get_remaining_material(ponder_board);
+    auto start_time = std::chrono::steady_clock::now();
+
+    // Open the log file in append mode
+    ThreadSafeLogger &logger = ThreadSafeLogger::getInstance("logs/app_log.txt");
+
+    if (am_logging)
+    {
+        logger.write("Debug", "Started Pondering");
+    }
+
+    // Prepare move list
+    std::vector<Move> move_list;
+    generate_legal_moves(ponder_board, move_list);
+
+    // Initial sorting of moves (e.g., ordering captures, etc.)
+    sort_for_pruning(move_list, board_representation);
+
+    // iterative deepening
+    do
+    {
+        int alpha = -INT_MAX;
+        int beta = INT_MAX;
+        Move best_move;
+        int current_iteration_nodes = 0;
+
+        for (const Move &move : move_list)
+        {
+            if (stop_pondering.load()) // Time to stop pondering
+            {
+                break;
+            }
+
+            ponder_board.make_move(move);
+            int evaluation = -search(ponder_board, depth - 1, -beta,
+                                     -alpha, remaining_material_ratio, depth,
+                                     current_iteration_nodes, next_ponder_move, stop_pondering);
+            ponder_board.undo_move(move);
+
+            if (evaluation > alpha)
+            {
+                alpha = evaluation;
+                best_move = move;
+            }
+        }
+
+        best_move_found = best_move;
+
+        // Re-sort move list to put best_move first for better move ordering
+        swap_best_move_to_front(move_list, best_move_found);
+
+        ++depth;
+    } while (!stop_pondering.load());
+
+    if (am_logging)
+    {
+        auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                std::chrono::steady_clock::now() - start_time)
+                                .count();
+        std::ostringstream oss;
+        oss << "Pondered to depth " << depth << " in " << elapsed_time << " milliseconds";
+        logger.write("Debug", oss.str());
+    }
 }
 
 double get_remaining_material(BoardRepresentation &board_representation)
@@ -105,7 +195,10 @@ double get_remaining_material(BoardRepresentation &board_representation)
     return remaining_material_ratio;
 }
 
-int search(BoardRepresentation &board_representation, int depth, int alpha, int beta, double remaining_material_ratio, int starting_depth, int &current_iteration_nodes)
+int search(BoardRepresentation &board_representation, int depth,
+           int alpha, int beta, double remaining_material_ratio,
+           int starting_depth, int &current_iteration_nodes,
+           Move &ponder_move, const std::atomic<bool> &stop_pondering)
 {
     if (depth == 0)
     {
@@ -131,10 +224,13 @@ int search(BoardRepresentation &board_representation, int depth, int alpha, int 
 
     sort_for_pruning(move_list, board_representation);
 
+    Move best_response;
     for (const Move &move : move_list)
     {
         board_representation.make_move(move);
-        int evaluation = -search(board_representation, depth - 1, -beta, -alpha, remaining_material_ratio, starting_depth, current_iteration_nodes);
+        int evaluation = -search(board_representation, depth - 1, -beta, -alpha,
+                                 remaining_material_ratio, starting_depth,
+                                 current_iteration_nodes, ponder_move, stop_pondering);
         board_representation.undo_move(move);
 
         if (evaluation >= beta)
@@ -145,7 +241,18 @@ int search(BoardRepresentation &board_representation, int depth, int alpha, int 
         if (evaluation > alpha)
         {
             alpha = evaluation;
+            best_response = move;
         }
+
+        if (stop_pondering.load())
+        {
+            break;
+        }
+    }
+
+    if (depth == starting_depth - 1) // If we are on the opponents first response move set ponder to best response
+    {
+        ponder_move = best_response;
     }
 
     return alpha;

@@ -8,6 +8,8 @@
 #include "piece_square_tables.h"
 #include "logging.h"
 #include "clock_management.h"
+#include <sstream>
+#include <atomic>
 
 typedef unsigned long long u64;
 
@@ -18,6 +20,7 @@ const int CLOSE_PAWN_BONUS = 25;
 const int OPEN_KING_FILE_PENALTY = 50;
 const double ENDGAME_MATERIAL_CONDITION = 0.3;
 const double EARLY_GAME_MATERIAL_CONDITION = 0.7;
+const int MIN_DEPTH_SEARCHED = 2;
 
 struct Evaluation
 {
@@ -28,8 +31,13 @@ struct Evaluation
     Evaluation() : best_move(Move()), evaluation(0) {}
 };
 
-Evaluation find_best_move(BoardRepresentation &board_representation, const bool am_logging = false, const int wtime = 30000, const int btime = 30000, const int winc = 0, const int binc = 0);
-int search(BoardRepresentation &board_representation, int depth, int alpha, int beta, double remaining_material_ratio, int starting_depth, int &current_iteration_nodes);
+Evaluation find_best_move(BoardRepresentation &board_representation, Move &ponder_move, const bool am_logging = false, const int wtime = 30000,
+                          const int btime = 30000, const int winc = 0, const int binc = 0);
+void ponder(const BoardRepresentation &board_representation, const Move &my_played_move, const Move &ponder_move,
+            Move &next_ponder_move, Move &best_move_found,
+            bool am_logging, const std::atomic<bool> &stop_pondering);
+int search(BoardRepresentation &board_representation, int depth, int alpha, int beta, double remaining_material_ratio,
+           int starting_depth, int &current_iteration_nodes, Move &ponder_move, const std::atomic<bool> &stop_pondering);
 int search_captures(BoardRepresentation &board_representation, int alpha, int beta, double remaining_material_ratio);
 void sort_for_pruning(std::vector<Move> &move_list, const BoardRepresentation &board_representation);
 void swap_best_move_to_front(std::vector<Move> &move_list, const Move &best_move);

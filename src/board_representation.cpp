@@ -524,13 +524,6 @@ bool BoardRepresentation::is_opponent_piece(char &piece) const
     return ((white_to_move && is_black_piece(piece)) || (!white_to_move && is_white_piece(piece)));
 }
 
-// Utility methods
-void BoardRepresentation::reset()
-{
-    // Dummy reset method
-    std::cout << "Resetting board to initial position." << std::endl;
-}
-
 // Helper function to map the bitboard index to a Unicode chess piece symbol
 wchar_t BoardRepresentation::get_piece_at_square(int square) const
 {
