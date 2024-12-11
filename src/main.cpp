@@ -86,6 +86,11 @@ int main()
       std::cout << "uciok" << std::endl;
       logger.write("Output", "uciok");
     }
+
+    if (tokens[0] == "ucinewgame")
+    {
+      continue;
+    }
     else if (tokens[0] == "isready")
     {
       std::cout << "readyok" << std::endl;
@@ -154,6 +159,18 @@ int main()
         }
       }
 
+      if (tokens.size() >= 6 && tokens[1] == "ponder" && tokens[2] == "wtime" && tokens[4] == "btime")
+      {
+        wtime = std::stoi(tokens[3]);
+        btime = std::stoi(tokens[5]);
+
+        if (tokens.size() == 10 && tokens[6] == "winc" && tokens[8] == "binc")
+        {
+          winc = std::stoi(tokens[7]);
+          binc = std::stoi(tokens[9]);
+        }
+      }
+
       // Call find_best_move with the parsed time controls
       best_move = find_best_move(board_representation, ponder_move, true, wtime, btime, winc, binc).best_move;
 
@@ -175,7 +192,6 @@ int main()
     }
     else if (tokens[0] == "ponderhit")
     {
-      logger.write("Input", "ponderhit");
       // Ensure the pondering thread finishes
       stopPondering(ponder_thread, stop_pondering, logger);
 

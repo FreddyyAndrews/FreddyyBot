@@ -115,11 +115,6 @@ void ponder(const BoardRepresentation &board_representation, const Move &my_play
     // Open the log file in append mode
     ThreadSafeLogger &logger = ThreadSafeLogger::getInstance("logs/app_log.txt");
 
-    if (am_logging)
-    {
-        logger.write("Debug", "Started Pondering");
-    }
-
     // Prepare move list
     std::vector<Move> move_list;
     generate_legal_moves(ponder_board, move_list);
