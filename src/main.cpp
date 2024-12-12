@@ -76,18 +76,16 @@ int main()
       stopPondering(ponder_thread, stop_pondering, logger);
     }
 
-    if (tokens[0] != "go" && tokens[0] != "ponderhit") // reset ponder move
-    {
-      ponder_move = Move();
-    }
-
     if (tokens[0] == "uci")
     {
       std::cout << "uciok" << std::endl;
       logger.write("Output", "uciok");
     }
-
     if (tokens[0] == "ucinewgame")
+    {
+      continue;
+    }
+    if (tokens[0] == "stop")
     {
       continue;
     }
@@ -142,7 +140,7 @@ int main()
         logger.write("Error", "Invalid position command");
       }
     }
-    else if (tokens[0] == "go")
+    else if (tokens[0] == "go" && (tokens.size() == 1 || tokens[1] != "ponder")) // Move search, no ponder
     {
       int wtime = 30000, btime = 30000, winc = 0, binc = 0;
 
@@ -156,18 +154,6 @@ int main()
         {
           winc = std::stoi(tokens[6]);
           binc = std::stoi(tokens[8]);
-        }
-      }
-
-      if (tokens.size() >= 6 && tokens[1] == "ponder" && tokens[2] == "wtime" && tokens[4] == "btime")
-      {
-        wtime = std::stoi(tokens[3]);
-        btime = std::stoi(tokens[5]);
-
-        if (tokens.size() == 10 && tokens[6] == "winc" && tokens[8] == "binc")
-        {
-          winc = std::stoi(tokens[7]);
-          binc = std::stoi(tokens[9]);
         }
       }
 
@@ -189,6 +175,16 @@ int main()
       std::ostringstream oss;
       oss << "bestmove " << best_move.to_UCI() << " ponder " << ponder_move.to_UCI();
       logger.write("Output", oss.str());
+    }
+    else if (tokens[0] == "go" && tokens[1] == "ponder") // GUI asks to ponder the position
+    {
+      stop_pondering = false;
+      ponder_thread = std::thread(ponder,
+                                  std::ref(board_representation), // Pass by const reference
+                                  std::ref(next_ponder_move),     // Pass by reference
+                                  std::ref(best_move_pondered),   // Pass by reference
+                                  true,                           // Pass by value
+                                  std::cref(stop_pondering));     // Pass atomic<bool> by const reference
     }
     else if (tokens[0] == "ponderhit")
     {
@@ -215,19 +211,6 @@ int main()
     {
       std::cerr << "Error: Unknown command" << std::endl;
       logger.write("Error", "Unknown command");
-    }
-
-    if (ponder_move.is_instantiated() && best_move.is_instantiated()) // handle pondering on separate thread
-    {
-      stop_pondering = false;
-      ponder_thread = std::thread(ponder,
-                                  std::cref(board_representation), // Pass by const reference
-                                  std::cref(best_move),            // Pass by reference
-                                  std::cref(ponder_move),          // Pass by reference
-                                  std::ref(next_ponder_move),      // Pass by reference
-                                  std::ref(best_move_pondered),    // Pass by reference
-                                  true,                            // Pass by value
-                                  std::cref(stop_pondering));      // Pass atomic<bool> by const reference
     }
 
     logger.flush();

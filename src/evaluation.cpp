@@ -97,19 +97,14 @@ Evaluation find_best_move(BoardRepresentation &board_representation, Move &ponde
     return position_evaluation;
 }
 
-void ponder(const BoardRepresentation &board_representation, const Move &my_played_move, const Move &ponder_move,
+void ponder(BoardRepresentation &board_representation,
             Move &next_ponder_move, Move &best_move_found,
             bool am_logging, const std::atomic<bool> &stop_pondering)
 {
-    BoardRepresentation ponder_board = board_representation; // copy board representation to not interfere with game state
-    // Set up the board for pondering
-    ponder_board.make_move(my_played_move);
-    ponder_board.make_move(ponder_move);
-
     // Set starting depth
     int depth = 1;
     // auto start_time = std::chrono::steady_clock::now();
-    double remaining_material_ratio = get_remaining_material(ponder_board);
+    double remaining_material_ratio = get_remaining_material(board_representation);
     auto start_time = std::chrono::steady_clock::now();
 
     // Open the log file in append mode
@@ -117,7 +112,7 @@ void ponder(const BoardRepresentation &board_representation, const Move &my_play
 
     // Prepare move list
     std::vector<Move> move_list;
-    generate_legal_moves(ponder_board, move_list);
+    generate_legal_moves(board_representation, move_list);
 
     // Initial sorting of moves (e.g., ordering captures, etc.)
     sort_for_pruning(move_list, board_representation);
@@ -137,11 +132,11 @@ void ponder(const BoardRepresentation &board_representation, const Move &my_play
                 break;
             }
 
-            ponder_board.make_move(move);
-            int evaluation = -search(ponder_board, depth - 1, -beta,
+            board_representation.make_move(move);
+            int evaluation = -search(board_representation, depth - 1, -beta,
                                      -alpha, remaining_material_ratio, depth,
                                      current_iteration_nodes, next_ponder_move, stop_pondering);
-            ponder_board.undo_move(move);
+            board_representation.undo_move(move);
 
             if (evaluation > alpha)
             {

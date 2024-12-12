@@ -33,8 +33,7 @@ struct Evaluation
 
 Evaluation find_best_move(BoardRepresentation &board_representation, Move &ponder_move, const bool am_logging = false, const int wtime = 30000,
                           const int btime = 30000, const int winc = 0, const int binc = 0);
-void ponder(const BoardRepresentation &board_representation, const Move &my_played_move, const Move &ponder_move,
-            Move &next_ponder_move, Move &best_move_found,
+void ponder(BoardRepresentation &board_representation, Move &next_ponder_move, Move &best_move_found,
             bool am_logging, const std::atomic<bool> &stop_pondering);
 int search(BoardRepresentation &board_representation, int depth, int alpha, int beta, double remaining_material_ratio,
            int starting_depth, int &current_iteration_nodes, Move &ponder_move, const std::atomic<bool> &stop_pondering);
