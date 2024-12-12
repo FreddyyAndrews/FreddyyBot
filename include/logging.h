@@ -12,6 +12,7 @@ class ThreadSafeLogger
 private:
     std::ofstream logFile;
     std::mutex logMutex;
+    std::string logFileName;
 
     // Private constructor for Singleton
     ThreadSafeLogger(const std::string &filePath);
@@ -29,6 +30,8 @@ public:
 
     // Atomic write method with log level and thread ID
     void write(const std::string &level, const std::string &message);
+
+    void clear();
 
     void flush();
 };

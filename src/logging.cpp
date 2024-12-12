@@ -2,7 +2,7 @@
 
 // Constructor for Singleton (initializing logFile via initialization list)
 ThreadSafeLogger::ThreadSafeLogger(const std::string &filePath)
-    : logFile(filePath, std::ios::app), logMutex() // Initialize logFile
+    : logFile(filePath, std::ios::app), logMutex(), logFileName(filePath) // Initialize logFile
 {
     if (!logFile.is_open())
     {
@@ -38,4 +38,21 @@ void ThreadSafeLogger::flush()
 {
     std::lock_guard<std::mutex> lock(logMutex); // Lock the mutex
     logFile.flush();                            // Flush the buffer
+}
+
+void ThreadSafeLogger::clear()
+{
+    std::lock_guard<std::mutex> lock(logMutex); // Ensure thread safety
+    logFile.close();                            // Close the current log file
+    logFile.open(logFileName, std::ios::trunc); // Open in truncate mode to clear contents
+    if (!logFile.is_open())
+    {
+        throw std::ios_base::failure("Error: Unable to clear log file.");
+    }
+    logFile.close();                          // Close after truncating
+    logFile.open(logFileName, std::ios::app); // Reopen in append mode for further logging
+    if (!logFile.is_open())
+    {
+        throw std::ios_base::failure("Error: Unable to reopen log file after clearing.");
+    }
 }

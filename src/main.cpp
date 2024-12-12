@@ -59,6 +59,8 @@ int main()
 
   ThreadSafeLogger &logger = ThreadSafeLogger::getInstance("logs/app_log.txt");
 
+  logger.clear();  // Clear the log file for this session
+
   while (true)
   {
     std::getline(std::cin, input);
