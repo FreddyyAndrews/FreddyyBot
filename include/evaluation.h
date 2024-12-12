@@ -21,6 +21,7 @@ const int OPEN_KING_FILE_PENALTY = 50;
 const double ENDGAME_MATERIAL_CONDITION = 0.3;
 const double EARLY_GAME_MATERIAL_CONDITION = 0.7;
 const int MIN_DEPTH_SEARCHED = 2;
+const float KING_PIECE_SQUARE_MAP_MODIFIER = 1.5;  // increase king safety weight
 
 struct Evaluation
 {
@@ -36,7 +37,7 @@ Evaluation find_best_move(BoardRepresentation &board_representation, Move &ponde
 void ponder(BoardRepresentation &board_representation, Move &next_ponder_move, Move &best_move_found,
             bool am_logging, const std::atomic<bool> &stop_pondering);
 int search(BoardRepresentation &board_representation, int depth, int alpha, int beta, double remaining_material_ratio,
-           int starting_depth, int &current_iteration_nodes, Move &ponder_move, const std::atomic<bool> &stop_pondering);
+           int starting_depth, Move &ponder_move, const std::function<bool()> &should_stop);
 int search_captures(BoardRepresentation &board_representation, int alpha, int beta, double remaining_material_ratio);
 void sort_for_pruning(std::vector<Move> &move_list, const BoardRepresentation &board_representation);
 void swap_best_move_to_front(std::vector<Move> &move_list, const Move &best_move);

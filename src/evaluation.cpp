@@ -11,10 +11,13 @@ Evaluation find_best_move(BoardRepresentation &board_representation, Move &ponde
     std::chrono::time_point<std::chrono::steady_clock> cutoff_time = find_time_condition(
         remaining_material_ratio, wtime, btime, winc, binc, board_representation.white_to_move);
 
-    int previous_iteration_nodes = -1;
-    int current_iteration_nodes = -1;
-
     ThreadSafeLogger &logger = ThreadSafeLogger::getInstance("logs/app_log.txt");
+
+    auto time_stop_condition = [cutoff_time]()
+    {
+        auto now = std::chrono::steady_clock::now();
+        return now >= cutoff_time;
+    };
 
     if (am_logging)
     {
@@ -35,26 +38,21 @@ Evaluation find_best_move(BoardRepresentation &board_representation, Move &ponde
     // iterative deepening
     do
     {
-        auto iteration_start_time = std::chrono::steady_clock::now();
         int alpha = -INT_MAX;
         int beta = INT_MAX;
         Move best_move;
-        current_iteration_nodes = 0;
-        bool stop = false;
 
         for (const Move &move : move_list)
         {
-            // handle mid search timeout
-            if (depth > MIN_DEPTH_SEARCHED && std::chrono::steady_clock::now() > cutoff_time)
+            if (time_stop_condition() && depth != 1)
             {
-                stop = true;
                 break;
             }
 
             board_representation.make_move(move);
             int evaluation = -search(board_representation, depth - 1, -beta,
                                      -alpha, remaining_material_ratio, depth,
-                                     current_iteration_nodes, ponder_move, stop);
+                                     ponder_move, time_stop_condition);
             board_representation.undo_move(move);
 
             if (evaluation > alpha)
@@ -70,16 +68,9 @@ Evaluation find_best_move(BoardRepresentation &board_representation, Move &ponde
         // Re-sort move list to put best_move first for better move ordering
         swap_best_move_to_front(move_list, position_evaluation.best_move);
 
-        if (depth != 1 && !should_continue_iterating(current_iteration_nodes, previous_iteration_nodes,
-                                                     iteration_start_time, cutoff_time))
-        {
-            break;
-        }
-
         ++depth;
-        previous_iteration_nodes = current_iteration_nodes; // Set this iterations nodes to be the last iteration nodes
 
-    } while (std::chrono::steady_clock::now() < cutoff_time);
+    } while (!time_stop_condition());
 
     if (am_logging)
     {
@@ -101,6 +92,11 @@ void ponder(BoardRepresentation &board_representation,
             Move &next_ponder_move, Move &best_move_found,
             bool am_logging, const std::atomic<bool> &stop_pondering)
 {
+    auto ponder_stop_condition = [&]()
+    {
+        return stop_pondering.load();
+    };
+
     // Set starting depth
     int depth = 1;
     // auto start_time = std::chrono::steady_clock::now();
@@ -123,7 +119,6 @@ void ponder(BoardRepresentation &board_representation,
         int alpha = -INT_MAX;
         int beta = INT_MAX;
         Move best_move;
-        int current_iteration_nodes = 0;
 
         for (const Move &move : move_list)
         {
@@ -135,7 +130,7 @@ void ponder(BoardRepresentation &board_representation,
             board_representation.make_move(move);
             int evaluation = -search(board_representation, depth - 1, -beta,
                                      -alpha, remaining_material_ratio, depth,
-                                     current_iteration_nodes, next_ponder_move, stop_pondering);
+                                     next_ponder_move, ponder_stop_condition);
             board_representation.undo_move(move);
 
             if (evaluation > alpha)
@@ -185,14 +180,17 @@ double get_remaining_material(BoardRepresentation &board_representation)
     return remaining_material_ratio;
 }
 
-int search(BoardRepresentation &board_representation, int depth,
-           int alpha, int beta, double remaining_material_ratio,
-           int starting_depth, int &current_iteration_nodes,
-           Move &ponder_move, const std::atomic<bool> &stop_pondering)
+int search(BoardRepresentation &board_representation,
+           int depth,
+           int alpha,
+           int beta,
+           double remaining_material_ratio,
+           int starting_depth,
+           Move &ponder_move,
+           const std::function<bool()> &should_stop)
 {
     if (depth == 0)
     {
-        ++current_iteration_nodes;
         return search_captures(board_representation, alpha, beta, remaining_material_ratio);
     }
 
@@ -203,7 +201,6 @@ int search(BoardRepresentation &board_representation, int depth,
     {
         if (board_representation.is_in_check)
         {
-            // Closer mates are worth more
             return -(MATE_SCORE - (starting_depth - depth));
         }
         else
@@ -217,10 +214,20 @@ int search(BoardRepresentation &board_representation, int depth,
     Move best_response;
     for (const Move &move : move_list)
     {
+        if (should_stop()) // Check the stopping condition here
+        {
+            break;
+        }
+
         board_representation.make_move(move);
-        int evaluation = -search(board_representation, depth - 1, -beta, -alpha,
-                                 remaining_material_ratio, starting_depth,
-                                 current_iteration_nodes, ponder_move, stop_pondering);
+        int evaluation = -search(board_representation,
+                                 depth - 1,
+                                 -beta,
+                                 -alpha,
+                                 remaining_material_ratio,
+                                 starting_depth,
+                                 ponder_move,
+                                 should_stop);
         board_representation.undo_move(move);
 
         if (evaluation >= beta)
@@ -233,14 +240,9 @@ int search(BoardRepresentation &board_representation, int depth,
             alpha = evaluation;
             best_response = move;
         }
-
-        if (stop_pondering.load())
-        {
-            break;
-        }
     }
 
-    if (depth == starting_depth - 1) // If we are on the opponents first response move set ponder to best response
+    if (depth == starting_depth - 1)
     {
         ponder_move = best_response;
     }
@@ -476,7 +478,7 @@ int evaluate(BoardRepresentation &board_representation, double remaining_materia
             // **King Position Evaluation Based on Game Phase**
             if (remaining_material_ratio >= EARLY_GAME_MATERIAL_CONDITION)
             {
-                position_value = king_piece_square_table[rank][file];
+                position_value = static_cast<int>(static_cast<float>(king_endgame_piece_square_table[rank][file]) * KING_PIECE_SQUARE_MAP_MODIFIER);
             }
             else if (remaining_material_ratio <= ENDGAME_MATERIAL_CONDITION)
             {
