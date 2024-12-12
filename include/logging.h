@@ -6,6 +6,7 @@
 #include <string>
 #include <mutex>
 #include <thread>
+#include <streambuf>
 
 class ThreadSafeLogger
 {
@@ -35,5 +36,4 @@ public:
 
     void flush();
 };
-
 #endif // LOGGING_H

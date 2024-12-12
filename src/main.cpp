@@ -59,159 +59,167 @@ int main()
 
   ThreadSafeLogger &logger = ThreadSafeLogger::getInstance("logs/app_log.txt");
 
-  logger.clear();  // Clear the log file for this session
+  logger.clear(); // Clear the log file for this session
 
-  while (true)
+  try
   {
-    std::getline(std::cin, input);
-    if (input.empty())
-      continue;
+    while (true)
+    {
+      std::getline(std::cin, input);
+      if (input.empty())
+        continue;
 
-    // Log the input
-    logger.write("Input", input);
+      // Log the input
+      logger.write("Input", input);
 
-    std::vector<std::string> tokens = split(input, ' ');
+      std::vector<std::string> tokens = split(input, ' ');
 
-    // Stop pondering for all commands except "ponderhit"
-    if (tokens[0] != "ponderhit" && tokens[0] != "stop")
-    {
-      stopPondering(ponder_thread, stop_pondering, logger);
-    }
-
-    if (tokens[0] == "uci")
-    {
-      std::cout << "uciok" << std::endl;
-      logger.write("Output", "uciok");
-    }
-    if (tokens[0] == "ucinewgame")
-    {
-      continue;
-    }
-    else if (tokens[0] == "isready")
-    {
-      std::cout << "readyok" << std::endl;
-      logger.write("Output", "readyok");
-    }
-    else if (tokens[0] == "position")
-    {
-      // Handle setting the board position
-      if (tokens[1] == "startpos")
+      // Stop pondering for all commands except "ponderhit"
+      if (tokens[0] != "ponderhit" && tokens[0] != "stop")
       {
-        board_representation = BoardRepresentation();
-        if (tokens.size() > 2 && tokens[2] == "moves")
+        stopPondering(ponder_thread, stop_pondering, logger);
+      }
+
+      if (tokens[0] == "uci")
+      {
+        std::cout << "uciok" << std::endl;
+        logger.write("Output", "uciok");
+      }
+      if (tokens[0] == "ucinewgame")
+      {
+        continue;
+      }
+      else if (tokens[0] == "isready")
+      {
+        std::cout << "readyok" << std::endl;
+        logger.write("Output", "readyok");
+      }
+      else if (tokens[0] == "position")
+      {
+        // Handle setting the board position
+        if (tokens[1] == "startpos")
         {
-          for (size_t i = 3; i < tokens.size(); ++i)
+          board_representation = BoardRepresentation();
+          if (tokens.size() > 2 && tokens[2] == "moves")
           {
-            board_representation.make_move(tokens[i]);
+            for (size_t i = 3; i < tokens.size(); ++i)
+            {
+              board_representation.make_move(tokens[i]);
+            }
           }
+        }
+        else if (tokens[1] == "fen")
+        {
+          std::string fen;
+          for (size_t i = 2; i < tokens.size() && tokens[i] != "moves"; ++i)
+          {
+            fen += tokens[i] + " ";
+          }
+          board_representation = BoardRepresentation(fen);
+
+          size_t moves_index = 0;
+          for (size_t i = 2; i < tokens.size(); ++i)
+          {
+            if (tokens[i] == "moves")
+            {
+              moves_index = i;
+              break;
+            }
+          }
+          if (moves_index > 0)
+          {
+            for (size_t i = moves_index + 1; i < tokens.size(); ++i)
+            {
+              board_representation.make_move(tokens[i]);
+            }
+          }
+        }
+        else
+        {
+          std::cerr << "Error: Invalid position command" << std::endl;
+          logger.write("Error", "Invalid position command");
         }
       }
-      else if (tokens[1] == "fen")
+      else if (tokens[0] == "go" && (tokens.size() == 1 || tokens[1] != "ponder")) // Move search, no ponder
       {
-        std::string fen;
-        for (size_t i = 2; i < tokens.size() && tokens[i] != "moves"; ++i)
-        {
-          fen += tokens[i] + " ";
-        }
-        board_representation = BoardRepresentation(fen);
+        int wtime = 30000, btime = 30000, winc = 0, binc = 0;
 
-        size_t moves_index = 0;
-        for (size_t i = 2; i < tokens.size(); ++i)
+        // Parse the input tokens for time controls
+        if (tokens.size() >= 5 && tokens[1] == "wtime" && tokens[3] == "btime")
         {
-          if (tokens[i] == "moves")
+          wtime = std::stoi(tokens[2]);
+          btime = std::stoi(tokens[4]);
+
+          if (tokens.size() == 9 && tokens[5] == "winc" && tokens[7] == "binc")
           {
-            moves_index = i;
-            break;
+            winc = std::stoi(tokens[6]);
+            binc = std::stoi(tokens[8]);
           }
         }
-        if (moves_index > 0)
+
+        // Call find_best_move with the parsed time controls
+        best_move = find_best_move(board_representation, ponder_move, true, wtime, btime, winc, binc).best_move;
+
+        if (!ponder_move.is_instantiated())
         {
-          for (size_t i = moves_index + 1; i < tokens.size(); ++i)
-          {
-            board_representation.make_move(tokens[i]);
-          }
+          throw std::runtime_error("Ponder move not instantiated");
         }
+
+        if (!best_move.is_instantiated())
+        {
+          throw std::runtime_error("Best move not instantiated");
+        }
+
+        std::cout << "bestmove " << best_move.to_UCI() << " ponder " << ponder_move.to_UCI() << std::endl;
+
+        std::ostringstream oss;
+        oss << "bestmove " << best_move.to_UCI() << " ponder " << ponder_move.to_UCI();
+        logger.write("Output", oss.str());
+      }
+      else if (tokens[0] == "go" && tokens[1] == "ponder") // GUI asks to ponder the position
+      {
+        stop_pondering = false;
+        ponder_thread = std::thread(ponder,
+                                    std::ref(board_representation), // Pass by const reference
+                                    std::ref(next_ponder_move),     // Pass by reference
+                                    std::ref(best_move_pondered),   // Pass by reference
+                                    true,                           // Pass by value
+                                    std::cref(stop_pondering));     // Pass atomic<bool> by const reference
+      }
+      else if (tokens[0] == "ponderhit" || tokens[0] == "stop")
+      {
+        // Ensure the pondering thread finishes
+        stopPondering(ponder_thread, stop_pondering, logger);
+
+        {
+          std::lock_guard<std::mutex> lock(ponder_mutex);
+          best_move = best_move_pondered;
+          ponder_move = next_ponder_move;
+        }
+
+        std::cout << "bestmove " << best_move.to_UCI() << " ponder " << ponder_move.to_UCI() << std::endl;
+
+        std::ostringstream oss;
+        oss << "bestmove " << best_move.to_UCI() << " ponder " << ponder_move.to_UCI();
+        logger.write("Output", oss.str());
+      }
+      else if (tokens[0] == "quit")
+      {
+        break;
       }
       else
       {
-        std::cerr << "Error: Invalid position command" << std::endl;
-        logger.write("Error", "Invalid position command");
-      }
-    }
-    else if (tokens[0] == "go" && (tokens.size() == 1 || tokens[1] != "ponder")) // Move search, no ponder
-    {
-      int wtime = 30000, btime = 30000, winc = 0, binc = 0;
-
-      // Parse the input tokens for time controls
-      if (tokens.size() >= 5 && tokens[1] == "wtime" && tokens[3] == "btime")
-      {
-        wtime = std::stoi(tokens[2]);
-        btime = std::stoi(tokens[4]);
-
-        if (tokens.size() == 9 && tokens[5] == "winc" && tokens[7] == "binc")
-        {
-          winc = std::stoi(tokens[6]);
-          binc = std::stoi(tokens[8]);
-        }
+        std::cerr << "Error: Unknown command" << std::endl;
+        logger.write("Error", "Unknown command");
       }
 
-      // Call find_best_move with the parsed time controls
-      best_move = find_best_move(board_representation, ponder_move, true, wtime, btime, winc, binc).best_move;
-
-      if (!ponder_move.is_instantiated())
-      {
-        throw std::runtime_error("Ponder move not instantiated");
-      }
-
-      if (!best_move.is_instantiated())
-      {
-        throw std::runtime_error("Best move not instantiated");
-      }
-
-      std::cout << "bestmove " << best_move.to_UCI() << " ponder " << ponder_move.to_UCI() << std::endl;
-
-      std::ostringstream oss;
-      oss << "bestmove " << best_move.to_UCI() << " ponder " << ponder_move.to_UCI();
-      logger.write("Output", oss.str());
+      logger.flush();
     }
-    else if (tokens[0] == "go" && tokens[1] == "ponder") // GUI asks to ponder the position
-    {
-      stop_pondering = false;
-      ponder_thread = std::thread(ponder,
-                                  std::ref(board_representation), // Pass by const reference
-                                  std::ref(next_ponder_move),     // Pass by reference
-                                  std::ref(best_move_pondered),   // Pass by reference
-                                  true,                           // Pass by value
-                                  std::cref(stop_pondering));     // Pass atomic<bool> by const reference
-    }
-    else if (tokens[0] == "ponderhit" || tokens[0] == "stop")
-    {
-      // Ensure the pondering thread finishes
-      stopPondering(ponder_thread, stop_pondering, logger);
-
-      {
-        std::lock_guard<std::mutex> lock(ponder_mutex);
-        best_move = best_move_pondered;
-        ponder_move = next_ponder_move;
-      }
-
-      std::cout << "bestmove " << best_move.to_UCI() << " ponder " << ponder_move.to_UCI() << std::endl;
-
-      std::ostringstream oss;
-      oss << "bestmove " << best_move.to_UCI() << " ponder " << ponder_move.to_UCI();
-      logger.write("Output", oss.str());
-    }
-    else if (tokens[0] == "quit")
-    {
-      break;
-    }
-    else
-    {
-      std::cerr << "Error: Unknown command" << std::endl;
-      logger.write("Error", "Unknown command");
-    }
-
-    logger.flush();
+  }
+  catch (const std::exception &e)
+  {
+    logger.write("ERROR", e.what());
+    return 1;
   }
 
   logger.flush();
