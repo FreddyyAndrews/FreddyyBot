@@ -71,7 +71,7 @@ int main()
     std::vector<std::string> tokens = split(input, ' ');
 
     // Stop pondering for all commands except "ponderhit"
-    if (tokens[0] != "ponderhit")
+    if (tokens[0] != "ponderhit" && tokens[0] != "stop")
     {
       stopPondering(ponder_thread, stop_pondering, logger);
     }
@@ -82,10 +82,6 @@ int main()
       logger.write("Output", "uciok");
     }
     if (tokens[0] == "ucinewgame")
-    {
-      continue;
-    }
-    if (tokens[0] == "stop")
     {
       continue;
     }
@@ -186,7 +182,7 @@ int main()
                                   true,                           // Pass by value
                                   std::cref(stop_pondering));     // Pass atomic<bool> by const reference
     }
-    else if (tokens[0] == "ponderhit")
+    else if (tokens[0] == "ponderhit" || tokens[0] == "stop")
     {
       // Ensure the pondering thread finishes
       stopPondering(ponder_thread, stop_pondering, logger);
