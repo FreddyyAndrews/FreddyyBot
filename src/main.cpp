@@ -87,6 +87,7 @@ int main()
       }
       if (tokens[0] == "ucinewgame")
       {
+        logger.clear();  // clear logs at start of new game
         continue;
       }
       else if (tokens[0] == "isready")
@@ -209,8 +210,7 @@ int main()
       }
       else
       {
-        std::cerr << "Error: Unknown command" << std::endl;
-        logger.write("Error", "Unknown command");
+        logger.write("Warning", "Unknown command");
       }
 
       logger.flush();

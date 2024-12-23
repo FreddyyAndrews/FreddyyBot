@@ -1,4 +1,3 @@
-# Used to relaunch bot on VM
 #!/bin/bash
 
 # Stop the lichess-bot running process in tmux by sending Ctrl+C
@@ -17,10 +16,20 @@ make build
 # Remove the old main executable from lichess-bot/engines
 rm -f ../lichess-bot/engines/main
 
+# Remove the old config
+rm -f ../lichess-bot/config.yml
+
 # Copy the new main executable to lichess-bot/engines
 cp build/bin/main ../lichess-bot/engines
 
+# Copy the new config
+cp lichess_bot_config.yml ../lichess-bot
+
+cd ../lichess-bot || exit
+
+git pull
+
 # Start the lichess-bot in the tmux session
-tmux send-keys -t mysession 'python3 lichess-bot.py' Enter
+tmux send-keys -t mysession 'python3 lichess-bot.py -v' Enter
 tmux attach -t mysession
 # ctrl+b then d to detach from tmux
