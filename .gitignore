@@ -6,3 +6,4 @@ build/
 *.csv
 *.txt
 token.txt
+*.log
