@@ -1,7 +1,7 @@
 #include "clock_management.h"
 
-std::chrono::time_point<std::chrono::steady_clock> find_time_condition(double remaining_material_ratio, int wtime, int btime,
-                                                                       int winc, int binc, bool is_white_to_move)
+std::chrono::milliseconds find_time_condition(double remaining_material_ratio, int wtime, int btime,
+                                              int winc, int binc, bool is_white_to_move)
 {
     int remaining_time = is_white_to_move ? wtime : btime;
     int increment = is_white_to_move ? winc : binc;
@@ -9,8 +9,7 @@ std::chrono::time_point<std::chrono::steady_clock> find_time_condition(double re
     if (remaining_time + increment < EMERGENCY_MS) // handle very low time
     {
         int time_per_move = std::max(MIN_MOVE_TIME, increment - BUFFER_MS);
-        auto start_time = std::chrono::steady_clock::now();
-        return start_time + std::chrono::milliseconds(time_per_move);
+        return std::chrono::milliseconds(time_per_move);
     }
 
     // Determine the number of moves left based on the remaining material ratio
@@ -24,8 +23,8 @@ std::chrono::time_point<std::chrono::steady_clock> find_time_condition(double re
     time_per_move += increment;
 
     // Calculate the cutoff time as a time point in the future
-    auto start_time = std::chrono::steady_clock::now();
-    return start_time + std::chrono::milliseconds(time_per_move);
+
+    return std::chrono::milliseconds(time_per_move);
 }
 
 bool should_continue_iterating(int current_iteration_nodes, int previous_iteration_nodes,

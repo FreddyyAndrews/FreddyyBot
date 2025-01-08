@@ -25,11 +25,20 @@ cp build/bin/main ../lichess-bot/engines
 # Copy the new config
 cp lichess_bot_config.yml ../lichess-bot
 
+# Change directory to lichess-bot
 cd ../lichess-bot || exit
 
+# Pull the latest lichess-bot code
 git pull
+
+# Read the secret token from secret.txt
+secret=$(<secret.txt)
+
+# Replace the placeholder token "XXXXXXXXXX" in config.yml with the secret
+sed -i "s|XXXXXXXXXX|${secret}|g" config.yml
 
 # Start the lichess-bot in the tmux session
 tmux send-keys -t mysession 'python3 lichess-bot.py -v' Enter
+
+# Attach to the tmux session (Ctrl+b then d to detach)
 tmux attach -t mysession
-# ctrl+b then d to detach from tmux
