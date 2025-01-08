@@ -28,6 +28,8 @@ cp lichess_bot_config.yml ../lichess-bot
 # Change directory to lichess-bot
 cd ../lichess-bot || exit
 
+mv lichess_bot_config.yml config.yml
+
 # Pull the latest lichess-bot code
 git pull
 
