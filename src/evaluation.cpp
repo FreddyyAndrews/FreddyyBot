@@ -252,7 +252,7 @@ void ponder(BoardRepresentation &board_representation,
     // Stop condition logic for indefinite pondering until stop_pondering is set
     auto ponder_stop_condition = [&]()
     {
-        if (hard_stop.load())  // hard stop will always stop execution right away
+        if (hard_stop.load()) // hard stop will always stop execution right away
         {
             logger.write("Debug", "Ponder received stop signal. Stopping immediately.");
             return true;
@@ -672,7 +672,7 @@ int evaluate(BoardRepresentation &board_representation, double remaining_materia
             // **King Position Evaluation Based on Game Phase**
             if (remaining_material_ratio >= EARLY_GAME_MATERIAL_CONDITION)
             {
-                position_value = static_cast<int>(static_cast<float>(king_endgame_piece_square_table[rank][file]) * KING_PIECE_SQUARE_MAP_MODIFIER);
+                position_value = king_piece_square_table[rank][file];
             }
             else if (remaining_material_ratio <= ENDGAME_MATERIAL_CONDITION)
             {
@@ -706,12 +706,17 @@ int evaluate(BoardRepresentation &board_representation, double remaining_materia
     eval += static_cast<int>(trade_bonus);
 
     // **King Safety Evaluation**
-    int king_safety_bonus = evaluate_king_safety(board_representation,
+    int king_safety_bonus = 0;
+    if (remaining_material_ratio > 0.5) // If more than half the material is on the board do the additional king safety checks
+    {
+        king_safety_bonus = evaluate_king_safety(board_representation,
                                                  remaining_material_ratio,
                                                  friendly_pawns,
                                                  opp_pawns,
                                                  king_pos,
                                                  opp_king_pos);
+    }
+
     eval += king_safety_bonus;
 
     // **Doubled Pawns Evaluation**
