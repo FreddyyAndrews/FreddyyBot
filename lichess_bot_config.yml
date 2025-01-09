@@ -45,7 +45,7 @@ engine:                            # Engine settings.
     chessdb_book:
       enabled: true               # Whether or not to use chessdb book.
       min_time: 20                 # Minimum time (in seconds) to use chessdb book.
-      move_quality: "best"         # One of "all", "good", "best".
+      move_quality: "good"         # One of "all", "good", "best".
       min_depth: 20                # Only for move_quality: "best".
     lichess_cloud_analysis:
       enabled: true               # Whether or not to use lichess cloud analysis.
