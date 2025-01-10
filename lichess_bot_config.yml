@@ -59,7 +59,7 @@ engine:                            # Engine settings.
       min_time: 20
       source: "masters"            # One of "lichess", "masters", "player"
       player_name: ""              # The lichess username. Leave empty for the bot's username to be used. Used only when source is "player".
-      sort: "winrate"              # One of "winrate", "games_played"
+      sort: "games_played"              # One of "winrate", "games_played"
       min_games: 10                # Minimum number of times a move must have been played to be chosen.
     online_egtb:
       enabled: true               # Whether or not to enable online endgame tablebases.
