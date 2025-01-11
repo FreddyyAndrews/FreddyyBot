@@ -1,5 +1,6 @@
 #include "board_representation.h"
 #include "evaluation.h"
+#include "zobrist_values.h"
 
 #include <iostream>
 #include <sstream>
@@ -49,6 +50,7 @@ void stopPondering(std::thread &ponder_thread,
 // Main function to handle UCI communication
 int main()
 {
+  init_zobrist_keys();  // initialize random numbers for hashing at start of program 
   BoardRepresentation board_representation;
   std::string input;
   Move best_move, ponder_move;

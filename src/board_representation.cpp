@@ -712,3 +712,86 @@ bool BoardRepresentation::is_only_between(const Square &square_a, const Square &
         return false;
     }
 }
+
+inline int piece_to_index(char piece)
+{
+    switch (piece)
+    {
+    case 'P':
+        return 0; // White Pawn
+    case 'N':
+        return 1; // White Knight
+    case 'B':
+        return 2; // White Bishop
+    case 'R':
+        return 3; // White Rook
+    case 'Q':
+        return 4; // White Queen
+    case 'K':
+        return 5; // White King
+
+    case 'p':
+        return 6; // Black Pawn
+    case 'n':
+        return 7; // Black Knight
+    case 'b':
+        return 8; // Black Bishop
+    case 'r':
+        return 9; // Black Rook
+    case 'q':
+        return 10; // Black Queen
+    case 'k':
+        return 11; // Black King
+
+    default:
+        return -1; // 'e' or invalid
+    }
+}
+
+std::uint64_t BoardRepresentation::zobrist_hash() const
+{
+    std::uint64_t h = 0ULL;
+
+    // 1. Pieces on squares
+    for (int rank = 0; rank < 8; ++rank)
+    {
+        for (int file = 0; file < 8; ++file)
+        {
+            char piece = board[rank][file]; // e.g., 'P', 'p', 'N', 'e', etc.
+            if (piece != 'e')
+            {
+                int pieceIndex = piece_to_index(piece);
+                if (pieceIndex >= 0)
+                {
+                    int squareIndex = rank * 8 + file;
+                    h ^= ZOBRIST_PIECE[pieceIndex][squareIndex];
+                }
+            }
+        }
+    }
+
+    // 2. Side to move (only XOR if black to move)
+    if (!white_to_move)
+    {
+        h ^= ZOBRIST_SIDE_TO_MOVE;
+    }
+
+    // 3. Castling rights
+    if (white_can_castle_kingside)
+        h ^= ZOBRIST_CASTLING[0];
+    if (white_can_castle_queenside)
+        h ^= ZOBRIST_CASTLING[1];
+    if (black_can_castle_kingside)
+        h ^= ZOBRIST_CASTLING[2];
+    if (black_can_castle_queenside)
+        h ^= ZOBRIST_CASTLING[3];
+
+    // 4. En passant
+    // If en_passant_square is valid, XOR its file
+    if (en_passant_square.exists())
+    {
+        h ^= ZOBRIST_EN_PASSANT[en_passant_square.file];
+    }
+
+    return h;
+}
