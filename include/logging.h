@@ -7,6 +7,9 @@
 #include <mutex>
 #include <thread>
 #include <streambuf>
+#include <vector>
+#include <chrono>
+#include <iomanip>
 
 class ThreadSafeLogger
 {

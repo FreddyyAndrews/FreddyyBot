@@ -74,13 +74,13 @@ def main():
         try:
             num_puzzles = int(sys.argv[1])
         except ValueError:
-            num_puzzles = 100
+            num_puzzles = 10
     else:
-        num_puzzles = 100
+        num_puzzles = 10
 
     # Arbitrary popularity threshold:
     popularity_threshold = 20
-    rating_threshold = 2000
+    rating_threshold = 1200
 
     # Load desired columns, including a 'Popularity' column
     df = pd.read_csv("scripts/lichess_db_puzzle.csv", usecols=["FEN", "Moves", "Popularity", "Rating"])

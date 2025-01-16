@@ -3,9 +3,10 @@
 
 TEST(EvaluationTest, TestMateIn1)
 {
+    init_zobrist_keys();
     BoardRepresentation board_representation = BoardRepresentation("8/8/8/8/kr5Q/8/8/1R5K w - - 0 1");
-    Move ponder_move;
-    Evaluation eval = find_best_move(board_representation, ponder_move);
+    TranspositionTable transposition_table;
+    Evaluation eval = find_best_move(board_representation, transposition_table);
 
     EXPECT_EQ("h4b4", eval.best_move.to_UCI());
     EXPECT_EQ(MATE_SCORE - 1, eval.evaluation);
@@ -13,9 +14,10 @@ TEST(EvaluationTest, TestMateIn1)
 
 TEST(EvaluationTest, TestMateIn2)
 {
+    init_zobrist_keys();
     BoardRepresentation board_representation = BoardRepresentation("2R5/2R5/8/8/8/7K/pn6/k1r3r1 w - - 0 1");
-    Move ponder_move;
-    Evaluation eval = find_best_move(board_representation, ponder_move);
+    TranspositionTable transpo;
+    Evaluation eval = find_best_move(board_representation, transpo);
 
     EXPECT_EQ("c7c1", eval.best_move.to_UCI());
     EXPECT_EQ(MATE_SCORE - 3, eval.evaluation);
@@ -23,9 +25,10 @@ TEST(EvaluationTest, TestMateIn2)
 
 TEST(EvaluationTest, TestAvoidStalemate)
 {
+    init_zobrist_keys();
     BoardRepresentation board_representation = BoardRepresentation("6Q1/8/7k/8/4p3/PP2P3/4KPP1/8 w - - 0 1");
-    Move ponder_move;
-    Evaluation eval = find_best_move(board_representation, ponder_move);
+    TranspositionTable transpo;
+    Evaluation eval = find_best_move(board_representation, transpo);
     ASSERT_NE("g2g4", eval.best_move.to_UCI());
 }
 
@@ -73,4 +76,17 @@ TEST(EvaluationTest, DoubledPawnsTest2)
     int doubled_pawn_score = evaluate_doubled_pawns(friendly_pawns, opp_pawns);
     int expected = -DOUBLED_PAWN_PENALTY;
     EXPECT_EQ(doubled_pawn_score, expected);
+}
+
+TEST(EvaluationTest, ThreefoldTest)
+{
+    init_zobrist_keys();
+    TranspositionTable transposition_table;
+    std::vector<std::string> moves = {"h1g1", "a5a6", "g1h1", "a6a5", "h1g1", "a5a6", "g1h1"};
+    BoardRepresentation board_representation = BoardRepresentation("8/8/8/k7/8/8/7N/7K w - - 0 1", moves);
+
+    Evaluation eval = find_best_move(board_representation, transposition_table, true);
+
+    EXPECT_EQ("a6a5", eval.best_move.to_UCI());
+    EXPECT_EQ(0, eval.evaluation);
 }

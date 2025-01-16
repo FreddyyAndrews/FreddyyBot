@@ -10,8 +10,10 @@
 #include "char_utils.h"
 #include <unordered_set>
 #include "zobrist_values.h"
+#include "threefold_map.h"
 
 typedef unsigned long long u64;
+const std::string START_POS = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 class BoardRepresentation
 {
@@ -19,15 +21,18 @@ public:
     // Constructors
     BoardRepresentation();                                // Initialize an empty or standard chess board
     explicit BoardRepresentation(const std::string &fen); // Initialize from a FEN string
+    BoardRepresentation(const std::string &fen, const std::vector<std::string> &moves);
+    BoardRepresentation(const std::vector<std::string> &moves);
 
     // Methods to handle FEN strings
     void input_fen_position(const std::string &fen); // Load a position from a FEN string
     std::string output_fen_position() const;         // Output the current position as a FEN string
 
     // Methods to handle moves
-    const Move make_move(const std::string &move); // Apply a move (in UCI notation)
-    void make_move(const Move &move);              // Play move internally
-    void undo_move(const Move &move);              // Undo a move internally
+    const Move make_move(const std::string &move);   // Apply a move (in UCI notation)
+    void make_move(const Move &move);                // Play move internally
+    void make_move_literal(const std::string &move); // make move and store position
+    void undo_move(const Move &move);                // Undo a move internally
 
     // Methods for specific game states
     bool move_captures_king(const Move &) const; // Check if a move captures a king piece
@@ -51,6 +56,7 @@ public:
     int fullmove_number; // Number of full moves
     std::unordered_set<Square> non_empty_squares;
     bool is_in_check;
+    ThreefoldMap threefold_map;
 
 private:
     // Helper methods for legal move generation and game status checks

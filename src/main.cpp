@@ -1,6 +1,7 @@
 #include "board_representation.h"
 #include "evaluation.h"
 #include "zobrist_values.h"
+#include "transposition_table.h"
 
 #include <iostream>
 #include <sstream>
@@ -50,7 +51,7 @@ void stopPondering(std::thread &ponder_thread,
 // Main function to handle UCI communication
 int main()
 {
-  init_zobrist_keys();  // initialize random numbers for hashing at start of program 
+  init_zobrist_keys(); // To be down once at start of program
   BoardRepresentation board_representation;
   std::string input;
   Move best_move, ponder_move;
@@ -63,6 +64,9 @@ int main()
   Move next_ponder_move, best_move_pondered;
 
   ThreadSafeLogger &logger = ThreadSafeLogger::getInstance("logs/app_log.txt");
+
+  // Init transposition table
+  TranspositionTable transposition_table;
 
   try
   {
@@ -89,6 +93,7 @@ int main()
       if (tokens[0] == "ucinewgame")
       {
         logger.clear();
+        transposition_table.reset_table(); // empty out the transposition table for a new game
         continue;
       }
       else if (tokens[0] == "isready")
@@ -100,13 +105,14 @@ int main()
       {
         if (tokens[1] == "startpos")
         {
-          board_representation = BoardRepresentation();
           if (tokens.size() > 2 && tokens[2] == "moves")
           {
-            for (size_t i = 3; i < tokens.size(); ++i)
-            {
-              board_representation.make_move(tokens[i]);
-            }
+            std::vector<std::string> moves(tokens.begin() + 3, tokens.end());
+            board_representation = BoardRepresentation(moves);
+          }
+          else
+          {
+            board_representation = BoardRepresentation();
           }
         }
         else if (tokens[1] == "fen")
@@ -124,15 +130,15 @@ int main()
             fen += tokens[i] + " ";
           }
 
-          board_representation = BoardRepresentation(fen);
-
           // If we found the "moves" token, apply those moves
           if (moves_index != 0 && moves_index < tokens.size())
           {
-            for (size_t i = moves_index + 1; i < tokens.size(); ++i)
-            {
-              board_representation.make_move(tokens[i]);
-            }
+            std::vector<std::string> moves(tokens.begin() + static_cast<int>(moves_index) + 1, tokens.end());
+            board_representation = BoardRepresentation(fen, moves);
+          }
+          else
+          {
+            board_representation = BoardRepresentation(fen);
           }
         }
         else
@@ -168,7 +174,7 @@ int main()
         }
 
         Evaluation position_evaluation =
-            find_best_move(board_representation, true,
+            find_best_move(board_representation, transposition_table, true,
                            wtime, btime, winc, binc,
                            forced_time);
 
@@ -196,6 +202,9 @@ int main()
           oss << "bestmove " << best_move.to_UCI();
           logger.write("Output", oss.str());
         }
+
+        // maintain the transposition table
+        transposition_table.maintain_table();
       }
       else if (tokens[0] == "go" && tokens[1] == "ponder")
       {
@@ -236,6 +245,7 @@ int main()
 
         ponder_thread = std::thread(ponder,
                                     std::ref(board_representation),
+                                    std::ref(transposition_table),
                                     std::ref(next_ponder_move),
                                     std::ref(best_move_pondered),
                                     true,
@@ -279,6 +289,9 @@ int main()
           oss << "bestmove " << best_move.to_UCI();
           logger.write("Output", oss.str());
         }
+
+        // maintain the transposition table
+        transposition_table.maintain_table();
       }
       else if (tokens[0] == "quit")
       {

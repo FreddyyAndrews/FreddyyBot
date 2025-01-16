@@ -11,6 +11,7 @@
 #include <sstream>
 #include <atomic>
 #include <vector>
+#include "transposition_table.h"
 
 typedef unsigned long long u64;
 
@@ -21,7 +22,7 @@ const int CLOSE_PAWN_BONUS = 25;
 const int OPEN_KING_FILE_PENALTY = 50;
 const double ENDGAME_MATERIAL_CONDITION = 0.3;
 const double EARLY_GAME_MATERIAL_CONDITION = 0.7;
-const int MIN_DEPTH_SEARCHED = 2;
+const int MIN_DEPTH_SEARCHED = 1;
 const float KING_PIECE_SQUARE_MAP_MODIFIER = 1.5; // increase king safety weight
 const int DEFAULT_SEARCH_TIME_MS = 1000;
 
@@ -29,13 +30,23 @@ struct Evaluation
 {
     Move best_move;
     Move ponder_move;
-    std::vector<Move> pv;
     int evaluation;
 
-    Evaluation() : best_move(), ponder_move(), pv(), evaluation(0) {}
+    Evaluation() : best_move(), ponder_move(), evaluation(0) {}
+    Evaluation(const int evaluation) : best_move(), ponder_move(), evaluation(evaluation) {}
+    Evaluation(const int evaluation, const Move &best_move) : best_move(best_move), ponder_move(), evaluation(evaluation) {}
+
+    Evaluation(const Move &best_move,
+               const Move &ponder_move,
+               const int evaluation) : best_move(best_move),
+                                       ponder_move(ponder_move),
+                                       evaluation(evaluation)
+    {
+    }
 };
 
 Evaluation find_best_move(BoardRepresentation &board_representation,
+                          TranspositionTable &transposition_table,
                           const bool am_logging = false,
                           const int wtime = 30000,
                           const int btime = 30000,
@@ -44,6 +55,7 @@ Evaluation find_best_move(BoardRepresentation &board_representation,
                           const int forced_time = -1);
 
 void ponder(BoardRepresentation &board_representation,
+            TranspositionTable &transposition_table,
             Move &next_ponder_move,
             Move &best_move_found,
             bool am_logging,
@@ -55,26 +67,31 @@ void ponder(BoardRepresentation &board_representation,
             const int binc = 0,
             const int forced_time = -1);
 
-int search(BoardRepresentation &board_representation,
-           int depth,
-           int alpha,
-           int beta,
-           double remaining_material_ratio,
-           int starting_depth,
-           std::vector<Move> &pv, // <--- principal variation
-           const std::function<bool()> &should_stop,
-           bool &stop_flag);
+Evaluation run_iterative_deepening(BoardRepresentation &board_representation,
+                                   TranspositionTable &transposition_table,
+                                   bool am_logging,
+                                   std::function<bool()> stop_condition);
+
+Evaluation search(BoardRepresentation &board_representation,
+                  TranspositionTable &transposition_table,
+                  std::vector<Move> &top_depth_moves,
+                  int depth,
+                  int alpha,
+                  int beta,
+                  double remaining_material_ratio,
+                  int starting_depth,
+                  const std::function<bool()> &should_stop,
+                  bool &stop_flag);
 
 int search_captures(BoardRepresentation &board_representation,
                     int alpha,
                     int beta,
-                    double remaining_material_ratio,
-                    std::vector<Move> &pv);
+                    double remaining_material_ratio);
 
 void sort_for_pruning(std::vector<Move> &move_list,
                       const BoardRepresentation &board_representation);
 
-void swap_best_move_to_front(std::vector<Move> &move_list,
+void bump_best_move_to_front(std::vector<Move> &move_list,
                              const Move &best_move);
 
 int get_piece_value(char piece);

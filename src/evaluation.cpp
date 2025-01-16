@@ -7,165 +7,8 @@
 #include <vector>
 #include <limits>
 
-Evaluation run_iterative_deepening(BoardRepresentation &board_representation,
-                                   bool am_logging,
-                                   std::function<bool()> stop_condition)
-{
-    Evaluation position_evaluation;
-
-    int depth = MIN_DEPTH_SEARCHED;
-    auto start_time = std::chrono::steady_clock::now();
-    ThreadSafeLogger &logger = ThreadSafeLogger::getInstance("logs/app_log.txt");
-
-    // Generate initial move list
-    std::vector<Move> move_list;
-    generate_legal_moves(board_representation, move_list);
-    sort_for_pruning(move_list, board_representation);
-
-    double remaining_material_ratio = get_remaining_material(board_representation);
-
-    do
-    {
-        int alpha = -std::numeric_limits<int>::max();
-        int beta = std::numeric_limits<int>::max();
-
-        bool stop_flag = false;
-        Move best_move;
-
-        // store the best line at this iteration
-        std::vector<Move> best_line_at_this_depth;
-
-        for (const Move &move : move_list)
-        {
-            if (stop_condition() && depth != MIN_DEPTH_SEARCHED)
-            {
-                break;
-            }
-
-            board_representation.make_move(move);
-
-            // local principal variation for the move
-            std::vector<Move> pv_child;
-            int evaluation = -search(board_representation,
-                                     depth - 1,
-                                     -beta,
-                                     -alpha,
-                                     remaining_material_ratio,
-                                     depth,
-                                     pv_child,
-                                     stop_condition,
-                                     stop_flag);
-
-            board_representation.undo_move(move);
-
-            if (stop_flag)
-            {
-                // The search for this move was interrupted, discard it
-                break;
-            }
-
-            if (evaluation > alpha)
-            {
-                alpha = evaluation;
-                best_move = move;
-
-                // build best_line_at_this_depth from this move + its child line
-                best_line_at_this_depth.clear();
-                best_line_at_this_depth.push_back(move);
-                best_line_at_this_depth.insert(
-                    best_line_at_this_depth.end(),
-                    pv_child.begin(),
-                    pv_child.end());
-            }
-        }
-
-        // If we found a fully-searched move
-        if (best_move.is_instantiated())
-        {
-            // Record the final evaluation
-            position_evaluation.evaluation = alpha;
-            // Record the best move at this depth
-            position_evaluation.best_move = best_move;
-
-            // If the line has at least two moves and it's not mate-in-1
-            // we treat the second move as the “ponder” move
-            if (best_line_at_this_depth.size() >= 2)
-            {
-                // Check for mate-in-1. This is optional; you might detect it via alpha == MATE_SCORE or similar.
-                // For demonstration, let's say we only skip the ponder if alpha is a checkmate score near MATE_SCORE
-                bool mate_in_one = (std::abs(alpha) >= (MATE_SCORE - 1));
-                if (!mate_in_one)
-                {
-                    position_evaluation.ponder_move = best_line_at_this_depth[1];
-                }
-            }
-
-            {
-                std::ostringstream oss;
-                oss << "Principal Variation at depth " << depth;
-
-                // Example: position_evaluation.final_pv holds the entire line of moves
-                for (const Move &m : position_evaluation.pv)
-                {
-                    oss << " " << m.to_UCI() << " ";
-                }
-                logger.write("Debug", oss.str());
-            }
-
-            position_evaluation.pv = best_line_at_this_depth;
-
-            // Move the best move to the front for next iteration's ordering
-            swap_best_move_to_front(move_list, best_move);
-        }
-        else
-        {
-            // Could not find any fully searched move; keep previous iteration’s best
-            logger.write("Debug", "Search interrupted before any move was fully evaluated at this depth.");
-        }
-
-        ++depth;
-
-    } while (!stop_condition());
-
-    // Logging ...
-    if (am_logging)
-    {
-        auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                std::chrono::steady_clock::now() - start_time)
-                                .count();
-
-        {
-            std::ostringstream oss;
-            oss << "Searched depth " << depth << " in " << elapsed_time << " milliseconds";
-            logger.write("Debug", oss.str());
-        }
-
-        {
-            std::ostringstream oss;
-            oss << "Final evaluation: " << position_evaluation.evaluation;
-            logger.write("Debug", oss.str());
-        }
-
-        // Instead of logging best moves by depth and best opponent responses,
-        //      just log the entire final PV from your last completed iteration.
-        {
-            std::ostringstream oss;
-            oss << "Principal Variation from the final search: ";
-
-            // Example: position_evaluation.final_pv holds the entire line of moves
-            for (const Move &m : position_evaluation.pv)
-            {
-                oss << m.to_UCI() << " ";
-            }
-            logger.write("Debug", oss.str());
-        }
-    }
-
-    assert(position_evaluation.best_move.is_instantiated());
-    return position_evaluation;
-}
-
 Evaluation find_best_move(BoardRepresentation &board_representation,
+                          TranspositionTable &transposition_table,
                           bool am_logging,
                           int wtime, int btime,
                           int winc, int binc,
@@ -205,11 +48,13 @@ Evaluation find_best_move(BoardRepresentation &board_representation,
 
     // Call the unified function
     return run_iterative_deepening(board_representation,
+                                   transposition_table,
                                    am_logging,
                                    time_stop_condition);
 }
 
 void ponder(BoardRepresentation &board_representation,
+            TranspositionTable &transposition_table,
             Move &next_ponder_move,
             Move &best_move_found,
             bool am_logging,
@@ -284,6 +129,7 @@ void ponder(BoardRepresentation &board_representation,
 
     // Use the same iterative deepening search
     Evaluation position_evaluation = run_iterative_deepening(board_representation,
+                                                             transposition_table,
                                                              am_logging,
                                                              ponder_stop_condition);
 
@@ -292,58 +138,217 @@ void ponder(BoardRepresentation &board_representation,
     next_ponder_move = position_evaluation.ponder_move;
 }
 
-int search(BoardRepresentation &board_representation,
-           int depth,
-           int alpha,
-           int beta,
-           double remaining_material_ratio,
-           int starting_depth,
-           std::vector<Move> &pv, // <--- principal variation
-           const std::function<bool()> &should_stop,
-           bool &stop_flag)
+Evaluation run_iterative_deepening(BoardRepresentation &board_representation,
+                                   TranspositionTable &transposition_table,
+                                   bool am_logging,
+                                   std::function<bool()> stop_condition)
 {
-    // Base case: if depth == 0, call search_captures with a local PV vector
-    if (depth == 0)
+    Evaluation position_evaluation;
+
+    int depth = MIN_DEPTH_SEARCHED;
+    auto start_time = std::chrono::steady_clock::now();
+    ThreadSafeLogger &logger = ThreadSafeLogger::getInstance("logs/app_log.txt");
+
+    double remaining_material_ratio = get_remaining_material(board_representation);
+
+    bool stop_flag = false;
+
+    std::vector<Evaluation> eval_by_depth;
+
+    std::vector<Move> top_depth_moves;
+    generate_legal_moves(board_representation, top_depth_moves);
+
+    if (top_depth_moves.empty() || board_representation.threefold_map.hasAnyThreefold())
     {
-        std::vector<Move> captures_pv; // child PV
-        int score = search_captures(board_representation, alpha, beta, remaining_material_ratio, captures_pv);
+        throw std::runtime_error("Cannot evaluate terminal position.");
+    }
+    sort_for_pruning(top_depth_moves, board_representation);
 
-        // Merge captures_pv into our top-level pv
-        // For captures, we typically only return the best sequence of captures
-        // but it’s often just 1 or 2 moves. If you’d like the full chain, do the same:
-        pv = captures_pv; // Copy the line found in captures
+    do
+    {
+        position_evaluation = search(board_representation,
+                                     transposition_table,
+                                     top_depth_moves,
+                                     depth,
+                                     -std::numeric_limits<int>::max(),
+                                     std::numeric_limits<int>::max(),
+                                     remaining_material_ratio,
+                                     depth,
+                                     stop_condition,
+                                     stop_flag);
 
-        return score;
+        if (position_evaluation.best_move.is_instantiated())
+        {
+            eval_by_depth.push_back(position_evaluation);
+            bump_best_move_to_front(top_depth_moves, position_evaluation.best_move);
+        }
+        ++depth;
+    } while (!stop_condition());
+
+    if (eval_by_depth.empty())
+    {
+        throw std::runtime_error("No search iterations completed. Cannot determine best move.");
     }
 
-    std::vector<Move> move_list;
-    generate_legal_moves(board_representation, move_list);
+    // Logging ...
+    if (am_logging)
+    {
+        auto elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                std::chrono::steady_clock::now() - start_time)
+                                .count();
 
-    // If no moves, it’s checkmate or stalemate
+        {
+            std::ostringstream oss;
+            oss << "Searched depth " << depth << " in " << elapsed_time << " milliseconds";
+            logger.write("Debug", oss.str());
+        }
+
+        {
+            std::ostringstream oss;
+            oss << "Final evaluation: " << eval_by_depth.back().evaluation;
+            logger.write("Debug", oss.str());
+        }
+    }
+
+    transposition_table.age_table();
+
+    // Check the last evaluation
+    Evaluation &last_eval = eval_by_depth.back();
+
+    if (!last_eval.best_move.is_instantiated())
+    {
+        throw std::runtime_error("This move should be instantiated.");
+    }
+
+    return last_eval;
+}
+
+// make sure move ordering is handled between iterations and interrupts are correctly handled
+Evaluation search(BoardRepresentation &board_representation,
+                  TranspositionTable &transposition_table,
+                  std::vector<Move> &top_depth_moves,
+                  int depth,
+                  int alpha,
+                  int beta,
+                  double remaining_material_ratio,
+                  int starting_depth,
+                  const std::function<bool()> &should_stop,
+                  bool &stop_flag)
+{
+    // Store the original alpha so we can decide on EntryType later
+    int original_alpha = alpha;
+
+    // Zobrist hash for the current position
+    std::uint64_t hash_key = board_representation.zobrist_hash();
+
+    if (depth != starting_depth) // starting position is already accounted for
+    {
+        board_representation.threefold_map.increment(hash_key);
+    }
+
+    // If this position has appeared at least 3 times, declare a draw
+    if (board_representation.threefold_map.hasThreefold(hash_key))
+    {
+        // Decrement on returning
+        board_representation.threefold_map.decrement(hash_key);
+        return Evaluation(0);
+    }
+
+    // -----------------
+    // Transposition Table Lookup
+    // -----------------
+    const TranspositionRow *entry = transposition_table.get(hash_key);
+    Move precomputed_best_move;
+
+    if (entry != nullptr)
+    {
+        if (entry->depth >= depth)
+        {
+            if (entry->entry_type == EntryType::Alpha && entry->eval <= alpha)
+            {
+                // Cleanup before return
+                board_representation.threefold_map.decrement(hash_key);
+                return Evaluation(entry->best_move, entry->best_response, entry->eval);
+            }
+            else if (entry->entry_type == EntryType::Beta && entry->eval >= beta)
+            {
+                // Cleanup before return
+                board_representation.threefold_map.decrement(hash_key);
+                return Evaluation(entry->best_move, entry->best_response, entry->eval);
+            }
+            else if (entry->entry_type == EntryType::PV)
+            {
+                // Cleanup before return
+                board_representation.threefold_map.decrement(hash_key);
+                return Evaluation(entry->best_move, entry->best_response, entry->eval);
+            }
+        }
+
+        // Use the stored best move for reordering
+        precomputed_best_move = entry->best_move;
+    }
+
+    // -----------------
+    // Base Case
+    // -----------------
+    if (depth == 0)
+    {
+        int score = search_captures(board_representation, alpha, beta, remaining_material_ratio);
+
+        // Decrement frequency map on return
+        board_representation.threefold_map.decrement(hash_key);
+        return Evaluation(score);
+    }
+
+    // -----------------
+    // Move Generation
+    // -----------------
+    std::vector<Move> local_move_list;
+    std::vector<Move> &move_list = (depth == starting_depth) ? top_depth_moves : local_move_list;
+
+    if (depth != starting_depth)
+    {
+        generate_legal_moves(board_representation, move_list);
+        sort_for_pruning(move_list, board_representation);
+    }
+
+    // -----------------
+    // Checkmate / Stalemate
+    // -----------------
     if (move_list.empty())
     {
         if (board_representation.is_in_check)
         {
-            // Mate score offset by how deep we are, so we prefer faster mates
-            return -(MATE_SCORE - (starting_depth - depth));
+            // Faster mates get higher scores
+            int mate_score = -(MATE_SCORE - (starting_depth - depth));
+            board_representation.threefold_map.decrement(hash_key);
+            return Evaluation(mate_score);
         }
         else
         {
-            return 0; // stalemate
+            // Stalemate
+            board_representation.threefold_map.decrement(hash_key);
+            return Evaluation(0);
         }
     }
 
-    sort_for_pruning(move_list, board_representation);
+    // -----------------
+    // If we have a best move from TT, reorder
+    // -----------------
+    if (precomputed_best_move.is_instantiated())
+    {
+        bump_best_move_to_front(move_list, precomputed_best_move);
+    }
 
+    // -----------------
+    // Alpha-Beta Loop
+    // -----------------
     int best_score = -std::numeric_limits<int>::max();
-    Move best_move;
-
-    // local vector to store the child PV
-    std::vector<Move> child_pv;
+    Move best_move, best_response;
 
     for (const Move &move : move_list)
     {
-        // Check stop condition if not in first iteration
+        // Check stop condition
         if (should_stop() && starting_depth != MIN_DEPTH_SEARCHED)
         {
             stop_flag = true;
@@ -352,24 +357,24 @@ int search(BoardRepresentation &board_representation,
 
         board_representation.make_move(move);
 
-        // Clear child_pv each time we search a child
-        child_pv.clear();
+        Evaluation evaluation = search(board_representation,
+                                       transposition_table,
+                                       top_depth_moves,
+                                       depth - 1,
+                                       -beta,
+                                       -alpha,
+                                       remaining_material_ratio,
+                                       starting_depth,
+                                       should_stop,
+                                       stop_flag);
 
-        int score = -search(board_representation,
-                            depth - 1,
-                            -beta,
-                            -alpha,
-                            remaining_material_ratio,
-                            starting_depth,
-                            child_pv,
-                            should_stop,
-                            stop_flag);
+        int score = evaluation.evaluation * -1; // Minimax inverting
 
         board_representation.undo_move(move);
 
         if (stop_flag)
         {
-            // If search was interrupted while evaluating this move, discard its partial result
+            // Discard partial result
             break;
         }
 
@@ -377,18 +382,13 @@ int search(BoardRepresentation &board_representation,
         {
             best_score = score;
             best_move = move;
+            best_response = evaluation.ponder_move;
 
             if (score > alpha)
             {
                 alpha = score;
             }
-
-            // rebuild our principal variation by prepending this move to the child’s PV
-            pv.clear();
-            pv.push_back(move);
-            pv.insert(pv.end(), child_pv.begin(), child_pv.end());
-
-            // Alpha-beta cutoff
+            // Cutoff
             if (alpha >= beta)
             {
                 break;
@@ -396,14 +396,43 @@ int search(BoardRepresentation &board_representation,
         }
     }
 
-    return best_score;
+    // -----------------
+    // Decrement frequency map on return
+    // -----------------
+    if (depth != starting_depth) // input position is fully accounted for before searching
+    {
+        board_representation.threefold_map.decrement(hash_key);
+    }
+
+    // -----------------
+    // Write to TT if not interrupted
+    // -----------------
+    if (depth >= MIN_TRANSPOSITION_DEPTH && !stop_flag)
+    {
+        EntryType entry_type;
+        if (best_score <= original_alpha)
+        {
+            entry_type = EntryType::Alpha;
+        }
+        else if (best_score >= beta)
+        {
+            entry_type = EntryType::Beta;
+        }
+        else
+        {
+            entry_type = EntryType::PV;
+        }
+
+        transposition_table.insert(hash_key, best_score, depth, best_move, best_response, entry_type);
+    }
+
+    return Evaluation(best_move, best_response, best_score);
 }
 
 int search_captures(BoardRepresentation &board_representation,
                     int alpha,
                     int beta,
-                    double remaining_material_ratio,
-                    std::vector<Move> &pv)
+                    double remaining_material_ratio)
 {
     // Evaluate current position
     int evaluation = evaluate(board_representation, remaining_material_ratio);
@@ -423,15 +452,11 @@ int search_captures(BoardRepresentation &board_representation,
     generate_legal_moves(board_representation, capture_moves, /* capturesOnly = */ true);
     sort_for_pruning(capture_moves, board_representation);
 
-    // local vector to store child captures PV
-    std::vector<Move> child_pv;
-
     for (const Move &move : capture_moves)
     {
         board_representation.make_move(move);
 
-        child_pv.clear();
-        int score = -search_captures(board_representation, -beta, -alpha, remaining_material_ratio, child_pv);
+        int score = -search_captures(board_representation, -beta, -alpha, remaining_material_ratio);
 
         board_representation.undo_move(move);
 
@@ -442,11 +467,6 @@ int search_captures(BoardRepresentation &board_representation,
         if (score > alpha)
         {
             alpha = score;
-
-            // build new PV for captures by prepending this move
-            pv.clear();
-            pv.push_back(move);
-            pv.insert(pv.end(), child_pv.begin(), child_pv.end());
         }
     }
 
@@ -542,23 +562,22 @@ void sort_for_pruning(std::vector<Move> &move_list, const BoardRepresentation &b
               });
 }
 
-void swap_best_move_to_front(std::vector<Move> &move_list, const Move &best_move)
+void bump_best_move_to_front(std::vector<Move> &move_list, const Move &best_move)
 {
     if (!best_move.is_instantiated())
     {
         throw std::runtime_error("Best move not set.");
     }
-    for (size_t i = 0; i < move_list.size(); ++i)
+
+    auto found_it = std::find(move_list.begin(), move_list.end(), best_move);
+
+    if (found_it == move_list.end())
     {
-        if (move_list[i] == best_move)
-        {
-            if (i != 0)
-            {
-                std::swap(move_list[0], move_list[i]);
-            }
-            break; // Exit the loop once the best move is found and moved
-        }
+        throw std::runtime_error("Best move does not exist in this vector.");
     }
+
+    // Rotate to move the found move to the front
+    std::rotate(move_list.begin(), found_it, found_it + 1);
 }
 
 int get_piece_value(char piece)

@@ -17,10 +17,13 @@ BoardRepresentation::BoardRepresentation()
       fullmove_number(0),
       non_empty_squares(),
       is_in_check(false),
+      threefold_map(),
       move_stack()
 {
     // Initialize using the standard starting position
-    input_fen_position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    input_fen_position(START_POS);
+    u_int64_t hash_key = zobrist_hash();
+    threefold_map.increment(hash_key);
 }
 
 // Constructor with FEN string
@@ -35,10 +38,69 @@ BoardRepresentation::BoardRepresentation(const std::string &fen)
       fullmove_number(0),
       non_empty_squares(),
       is_in_check(false),
+      threefold_map(),
       move_stack()
 {
     // Initialize using the provided FEN string
     input_fen_position(fen);
+    u_int64_t hash_key = zobrist_hash();
+    threefold_map.increment(hash_key);
+}
+
+// Constructor with only moves
+BoardRepresentation::BoardRepresentation(const std::vector<std::string> &moves)
+    : white_can_castle_kingside(false),
+      white_can_castle_queenside(false),
+      black_can_castle_kingside(false),
+      black_can_castle_queenside(false),
+      white_to_move(false),
+      en_passant_square(-1, -1),
+      halfmove_clock(0),
+      fullmove_number(0),
+      non_empty_squares(),
+      is_in_check(false),
+      threefold_map(),
+      move_stack()
+{
+    // Initialize using the provided FEN string
+    input_fen_position(START_POS);
+
+    u_int64_t hash_key = zobrist_hash();
+    threefold_map.increment(hash_key);
+
+    // play moves
+    for (const std::string &move : moves)
+    {
+        make_move_literal(move);
+    }
+}
+
+// Constructor with FEN string and moves
+BoardRepresentation::BoardRepresentation(const std::string &fen, const std::vector<std::string> &moves)
+    : white_can_castle_kingside(false),
+      white_can_castle_queenside(false),
+      black_can_castle_kingside(false),
+      black_can_castle_queenside(false),
+      white_to_move(false),
+      en_passant_square(-1, -1),
+      halfmove_clock(0),
+      fullmove_number(0),
+      non_empty_squares(),
+      is_in_check(false),
+      threefold_map(),
+      move_stack()
+{
+    // Initialize using the provided FEN string
+    input_fen_position(fen);
+
+    u_int64_t hash_key = zobrist_hash();
+    threefold_map.increment(hash_key);
+
+    // play moves
+    for (const std::string &move : moves)
+    {
+        make_move_literal(move);
+    }
 }
 
 // Function to convert FEN position to 2D board representation and other variables
@@ -212,6 +274,14 @@ std::string BoardRepresentation::output_fen_position() const
     fen << ' ' << halfmove_clock << ' ' << fullmove_number;
 
     return fen.str();
+}
+
+// Make move and store positions
+void BoardRepresentation::make_move_literal(const std::string &move)
+{
+    make_move(move);
+    u_int64_t hash_key = zobrist_hash();
+    threefold_map.increment(hash_key);
 }
 
 // Method to play move in internal memory
