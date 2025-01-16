@@ -4,7 +4,7 @@
 tmux send-keys -t mysession C-c
 
 # Navigate to ChessEngine100 directory
-cd ChessEngine100 || exit
+cd FreddyyBot || exit
 
 # Pull the latest code
 git pull

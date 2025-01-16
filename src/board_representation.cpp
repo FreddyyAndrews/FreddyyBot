@@ -141,7 +141,7 @@ void BoardRepresentation::input_fen_position(const std::string &fen)
         {
             if (std::isdigit(square))
             {
-                file_index += square - '0'; // Skip empty squares
+                file_index += static_cast<int>(square - '0'); // Skip empty squares
             }
             else
             {
@@ -164,8 +164,8 @@ void BoardRepresentation::input_fen_position(const std::string &fen)
     // Set en passant target square (if any)
     if (en_passant_target != "-")
     {
-        int8_t file = en_passant_target[0] - 'a';
-        int8_t rank = en_passant_target[1] - '1';
+        int8_t file = static_cast<int8_t>(en_passant_target[0] - 'a');
+        int8_t rank = static_cast<int8_t>(en_passant_target[1] - '1');
         en_passant_square = Square(rank, file); // define en passant square
     }
     else
@@ -550,11 +550,11 @@ const Move BoardRepresentation::make_move(const std::string &move)
     }
 
     // Convert UCI move to rank and file
-    int8_t from_rank_int = from_rank - '1'; // Convert char rank to int (e.g., '2' -> 1)
-    int8_t from_file_int = from_file - 'a'; // Convert char file to int (e.g., 'e' -> 4)
+    int8_t from_rank_int = static_cast<int8_t>(from_rank - '1'); // Convert char rank to int (e.g., '2' -> 1)
+    int8_t from_file_int = static_cast<int8_t>(from_file - 'a'); // Convert char file to int (e.g., 'e' -> 4)
 
-    int8_t to_rank_int = to_rank - '1'; // Convert char rank to int (e.g., '4' -> 3)
-    int8_t to_file_int = to_file - 'a'; // Convert char file to int (e.g., 'e' -> 4)
+    int8_t to_rank_int = static_cast<int8_t>(to_rank - '1'); // Convert char rank to int (e.g., '4' -> 3)
+    int8_t to_file_int = static_cast<int8_t>(to_file - 'a'); // Convert char file to int (e.g., 'e' -> 4)
 
     bool is_en_passant = false;
     bool is_castle = false;
