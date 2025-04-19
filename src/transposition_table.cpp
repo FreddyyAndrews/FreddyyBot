@@ -1,31 +1,22 @@
+// transposition_table.cpp
 #include "transposition_table.h"
-#include <string> // for std::to_string
+#include <string>
 
 // -----------------------
 // TranspositionRow
 // -----------------------
 TranspositionRow::TranspositionRow()
-    : eval(0),
-      depth(0),
-      best_move(Move()),
-      best_response(Move()),
-      entry_type(EntryType::Alpha),
-      age(0)
+    : eval(0), depth(0), age(0), best_move(), best_response(), entry_type(EntryType::Alpha)
 {
 }
 
-TranspositionRow::TranspositionRow(int eval,
-                                   int depth,
-                                   const Move &best_move,
-                                   const Move &best_response,
-                                   EntryType entry_type,
-                                   int age)
-    : eval(eval),
-      depth(depth),
-      best_move(best_move),
-      best_response(best_response),
-      entry_type(entry_type),
-      age(age)
+TranspositionRow::TranspositionRow(int eval_,
+                                   int depth_,
+                                   const Move &best_move_,
+                                   const Move &best_response_,
+                                   EntryType entry_type_,
+                                   int age_)
+    : eval(eval_), depth(depth_), age(age_), best_move(best_move_), best_response(best_response_), entry_type(entry_type_)
 {
 }
 
@@ -33,7 +24,7 @@ TranspositionRow::TranspositionRow(int eval,
 // TranspositionTable
 // -----------------------
 TranspositionTable::TranspositionTable()
-    : table(), current_age(0)
+    : table(), current_age(0), mutex_()
 {
 }
 
@@ -42,20 +33,19 @@ void TranspositionTable::insert(std::uint64_t hash,
                                 int depth,
                                 const Move &best_move,
                                 const Move &best_response,
-                                const EntryType &entry_type)
+                                EntryType entry_type)
 {
     if (depth < MIN_TRANSPOSITION_DEPTH)
-    {
         throw std::runtime_error("Search not deep enough to store in TT.");
-    }
+
+    std::unique_lock lock(mutex_);
 
     auto it = table.find(hash);
     if (it != table.end())
     {
-        // If entry already exists, refresh its age
+        // refresh age
         it->second.age = current_age;
-
-        // Overwrite if the new depth is greater
+        // replace only if deeper
         if (depth > it->second.depth)
         {
             it->second.eval = eval;
@@ -67,18 +57,24 @@ void TranspositionTable::insert(std::uint64_t hash,
     }
     else
     {
-        // Insert a brand new entry
-        TranspositionRow row(eval, depth, best_move, best_response, entry_type, current_age);
-        table[hash] = row;
+        table.emplace(hash,
+                      TranspositionRow(eval,
+                                       depth,
+                                       best_move,
+                                       best_response,
+                                       entry_type,
+                                       current_age));
     }
 }
 
 const TranspositionRow *TranspositionTable::get(std::uint64_t hash)
 {
+    std::unique_lock lock(mutex_);
+
     auto it = table.find(hash);
     if (it != table.end())
     {
-        // Refresh the age on access
+        // refresh age
         it->second.age = current_age;
         return &it->second;
     }
@@ -87,33 +83,34 @@ const TranspositionRow *TranspositionTable::get(std::uint64_t hash)
 
 void TranspositionTable::reset_table()
 {
+    std::unique_lock lock(mutex_);
     current_age = 0;
     table.clear();
 }
 
 void TranspositionTable::age_table()
 {
-    // Mark we're entering a new "search iteration" or generation
-    current_age++;
+    std::unique_lock lock(mutex_);
+    ++current_age;
 }
 
 void TranspositionTable::maintain_table()
 {
-    ThreadSafeLogger &logger = ThreadSafeLogger::getInstance("logs/app_log.txt");
+    std::unique_lock lock(mutex_);
+    auto &logger = ThreadSafeLogger::getInstance("logs/app_log.txt");
 
     size_t initial_size = table.size();
-    logger.write("Debug", "There are currently " + std::to_string(initial_size) +
-                              " unique positions in the transposition table.");
+    logger.write("Debug",
+                 "Before prune: " + std::to_string(initial_size) +
+                     " entries in TT");
 
-    size_t deleted_count = 0;
-
+    size_t deleted = 0;
     for (auto it = table.begin(); it != table.end();)
     {
-        // If this entry's age is too old, remove it
         if (current_age - it->second.age > OLDEST_AGE_TO_HOLD)
         {
             it = table.erase(it);
-            ++deleted_count;
+            ++deleted;
         }
         else
         {
@@ -121,10 +118,8 @@ void TranspositionTable::maintain_table()
         }
     }
 
-    logger.write("Debug", "Deleted " + std::to_string(deleted_count) +
-                              " positions from the transposition table.");
-
-    size_t final_size = table.size();
-    logger.write("Debug", "There are now " + std::to_string(final_size) +
-                              " unique positions in the transposition table.");
+    logger.write("Debug",
+                 "Pruned " + std::to_string(deleted) +
+                     " old entries; remaining " +
+                     std::to_string(table.size()));
 }
